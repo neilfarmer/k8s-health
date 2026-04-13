@@ -1,0 +1,42 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosimple
+    - gocritic
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    - unparam
+    - prealloc
+    - nolintlint
+    - revive
+    - bodyclose
+    - whitespace
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+  revive:
+    rules:
+      - name: exported
+        arguments:
+          - disableStutteringCheck
+
+issues:
+  exclude-dirs:
+    - vendor
+  max-issues-per-linter: 50
+  max-same-issues: 10

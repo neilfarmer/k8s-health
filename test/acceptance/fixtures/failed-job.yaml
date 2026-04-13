@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: failed-job-test
+  namespace: test-fixtures
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: fail
+          image: busybox:latest
+          command: ["sh", "-c", "exit 1"]

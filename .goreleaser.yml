@@ -1,0 +1,51 @@
+version: 2
+
+project_name: k8s-health
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: .
+    binary: k8s-health
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/neilfarmer/k8s-health/cmd.version={{.Version}}
+      - -X github.com/neilfarmer/k8s-health/cmd.commit={{.Commit}}
+      - -X github.com/neilfarmer/k8s-health/cmd.date={{.Date}}
+
+archives:
+  - formats: ['tar.gz']
+    format_overrides:
+      - goos: windows
+        formats: ['zip']
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+
+release:
+  github:
+    owner: neilfarmer
+    name: k8s-health
+  draft: false
+  prerelease: auto
