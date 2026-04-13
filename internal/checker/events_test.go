@@ -14,11 +14,11 @@ import (
 
 func TestEventChecker_RecentWarnings(t *testing.T) {
 	event := &corev1.Event{
-		ObjectMeta:    metav1.ObjectMeta{Name: "warn-event", Namespace: "default"},
-		Type:          "Warning",
-		Reason:        "FailedScheduling",
-		Message:       "no nodes available",
-		Count:         5,
+		ObjectMeta:     metav1.ObjectMeta{Name: "warn-event", Namespace: "default"},
+		Type:           "Warning",
+		Reason:         "FailedScheduling",
+		Message:        "no nodes available",
+		Count:          5,
 		LastTimestamp:  metav1.NewTime(time.Now().Add(-5 * time.Minute)),
 		InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "test-pod"},
 	}

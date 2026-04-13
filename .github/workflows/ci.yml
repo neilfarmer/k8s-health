@@ -80,11 +80,7 @@ jobs:
           echo "Waiting for bad states to manifest..."
           sleep 45
       - name: Run acceptance tests
-        env:
-          KUBECONFIG: ${{ github.workspace }}/.kube/config
-        run: |
-          kind get kubeconfig > ${{ github.workspace }}/.kube/config 2>/dev/null || true
-          go test -tags acceptance -v -timeout 300s ./test/acceptance/...
+        run: go test -tags acceptance -v -timeout 300s ./test/acceptance/...
       - name: Cleanup
         if: always()
         run: kind delete cluster

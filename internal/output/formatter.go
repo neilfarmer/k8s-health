@@ -8,11 +8,11 @@ import (
 
 // JSONReport is the top-level structure for JSON output.
 type JSONReport struct {
-	Timestamp  string          `json:"timestamp"`
-	Context    string          `json:"context"`
-	Namespaces []string        `json:"namespaces"`
-	Results    []JSONResult    `json:"results"`
-	Summary    ReportSummary   `json:"summary"`
+	Timestamp  string        `json:"timestamp"`
+	Context    string        `json:"context"`
+	Namespaces []string      `json:"namespaces"`
+	Results    []JSONResult  `json:"results"`
+	Summary    ReportSummary `json:"summary"`
 }
 
 // JSONResult wraps checker results for JSON output.

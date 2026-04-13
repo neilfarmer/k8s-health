@@ -15,9 +15,10 @@ import (
 )
 
 type jsonReport struct {
-	Context   string       `json:"context"`
-	Results   []jsonResult `json:"results"`
-	Summary   summary      `json:"summary"`
+	Context    string       `json:"context"`
+	Namespaces []string     `json:"namespaces"`
+	Results    []jsonResult `json:"results"`
+	Summary    summary      `json:"summary"`
 }
 
 type jsonResult struct {

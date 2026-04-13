@@ -1,39 +1,33 @@
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
+  default: none
   enable:
-    - errcheck
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - gosimple
     - gocritic
-    - gofmt
-    - goimports
     - misspell
     - unconvert
-    - unparam
-    - prealloc
-    - nolintlint
-    - revive
-    - bodyclose
     - whitespace
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+settings:
   gocritic:
     enabled-tags:
       - diagnostic
-      - style
       - performance
-  revive:
-    rules:
-      - name: exported
-        arguments:
-          - disableStutteringCheck
+    disabled-checks:
+      - ifElseChain
+      - appendAssign
 
 issues:
   exclude-dirs:

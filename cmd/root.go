@@ -8,12 +8,12 @@ import (
 )
 
 var (
-	kubeconfig string
-	kubecontext string
-	namespaces []string
+	kubeconfig   string
+	kubecontext  string
+	namespaces   []string
 	outputFormat string
-	noColor    bool
-	verbose    bool
+	noColor      bool
+	verbose      bool
 )
 
 var rootCmd = &cobra.Command{

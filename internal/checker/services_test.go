@@ -47,9 +47,9 @@ func TestServiceChecker_NoReadyEndpoints(t *testing.T) {
 			Selector: map[string]string{"app": "test"},
 		},
 	}
-	ep := &corev1.Endpoints{
+	ep := &corev1.Endpoints{ //nolint:staticcheck // Using Endpoints API to match checker implementation
 		ObjectMeta: metav1.ObjectMeta{Name: "my-svc", Namespace: "default"},
-		Subsets:    []corev1.EndpointSubset{},
+		Subsets:    []corev1.EndpointSubset{}, //nolint:staticcheck
 	}
 
 	client := fake.NewSimpleClientset(svc, ep)
@@ -73,9 +73,9 @@ func TestServiceChecker_Healthy(t *testing.T) {
 			Selector: map[string]string{"app": "test"},
 		},
 	}
-	ep := &corev1.Endpoints{
+	ep := &corev1.Endpoints{ //nolint:staticcheck // Using Endpoints API to match checker implementation
 		ObjectMeta: metav1.ObjectMeta{Name: "healthy-svc", Namespace: "default"},
-		Subsets: []corev1.EndpointSubset{
+		Subsets: []corev1.EndpointSubset{ //nolint:staticcheck
 			{Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}}},
 		},
 	}

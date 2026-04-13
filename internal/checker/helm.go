@@ -120,12 +120,13 @@ func (c *HelmChecker) checkRelease(rel *release.Release, result *Result) {
 	}
 
 	status := rel.Info.Status
-	sev := SeverityInfo
-	if criticalHelmStatuses[status] {
+	var sev Severity
+	switch {
+	case criticalHelmStatuses[status]:
 		sev = SeverityCritical
-	} else if warningHelmStatuses[status] {
+	case warningHelmStatuses[status]:
 		sev = SeverityWarning
-	} else {
+	default:
 		return // deployed or unknown-but-ok status
 	}
 

@@ -14,11 +14,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ErrIssuesFound is returned when the scan finds health issues.
+var ErrIssuesFound = fmt.Errorf("issues found")
+
 var (
-	checkers    []string
-	exclude     []string
-	severity    string
-	timeout     time.Duration
+	checkers []string
+	exclude  []string
+	severity string
+	timeout  time.Duration
 )
 
 var scanCmd = &cobra.Command{
@@ -91,30 +94,23 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 
 	contextName := clients.ContextName
+	issuesFound := hasFindings(allResults, minSeverity)
 
 	switch outputFormat {
 	case "json":
-		return renderJSON(allResults, contextName, minSeverity)
+		report := output.BuildJSONReport(allResults, contextName, namespaces, minSeverity)
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(report); err != nil {
+			return fmt.Errorf("failed to encode JSON: %w", err)
+		}
 	default:
 		formatter := output.NewTableFormatter(noColor, verbose)
 		formatter.Render(os.Stdout, allResults, contextName, namespaces, minSeverity)
 	}
 
-	if hasFindings(allResults, minSeverity) {
-		os.Exit(1)
-	}
-	return nil
-}
-
-func renderJSON(results []*checker.Result, contextName string, minSeverity checker.Severity) error {
-	report := output.BuildJSONReport(results, contextName, namespaces, minSeverity)
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(report); err != nil {
-		return fmt.Errorf("failed to encode JSON: %w", err)
-	}
-	if report.Summary.Critical > 0 || report.Summary.Warning > 0 {
-		os.Exit(1)
+	if issuesFound {
+		return ErrIssuesFound
 	}
 	return nil
 }

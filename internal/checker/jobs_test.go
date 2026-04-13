@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func boolPtr(b bool) *bool { return &b }
+func boolPtr(b bool) *bool    { return &b }
 func int64Ptr(i int64) *int64 { return &i }
 
 func TestJobChecker_Failed(t *testing.T) {

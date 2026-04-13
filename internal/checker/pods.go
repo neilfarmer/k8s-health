@@ -52,8 +52,8 @@ var criticalWaitingReasons = map[string]bool{
 }
 
 var warningWaitingReasons = map[string]bool{
-	"ImagePullBackOff": true,
-	"ErrImagePull":     true,
+	"ImagePullBackOff":  true,
+	"ErrImagePull":      true,
 	"ErrImageNeverPull": true,
 }
 
@@ -97,7 +97,9 @@ func (c *PodChecker) checkPod(pod *corev1.Pod, result *Result) {
 	}
 
 	// Check container statuses
-	allStatuses := append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...)
+	allStatuses := make([]corev1.ContainerStatus, 0, len(pod.Status.InitContainerStatuses)+len(pod.Status.ContainerStatuses))
+	allStatuses = append(allStatuses, pod.Status.InitContainerStatuses...)
+	allStatuses = append(allStatuses, pod.Status.ContainerStatuses...)
 	for _, cs := range allStatuses {
 		c.checkContainerStatus(pod, cs, result)
 	}
