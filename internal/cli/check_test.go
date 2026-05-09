@@ -132,3 +132,42 @@ func TestEtcdProbeRunWithBadEndpoint(t *testing.T) {
 	// (even if empty/error-marked).
 	_ = cmd.Execute()
 }
+
+func TestApplyBaseline(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/base.json"
+	base := result.Report{Findings: []result.Finding{
+		{Check: "a", Status: result.StatusWarning, Resource: "r1"},
+	}}
+	if err := result.SaveBaseline(path, base); err != nil {
+		t.Fatal(err)
+	}
+	cur := result.Report{Findings: []result.Finding{
+		{Check: "a", Status: result.StatusWarning, Resource: "r1"},
+		{Check: "b", Status: result.StatusCritical, Resource: "r2"},
+	}}
+	out, err := applyBaseline(cur, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tagged := 0
+	for _, f := range out.Findings {
+		if len(f.Resource) > 13 && f.Resource[:13] == "[seen-before]" {
+			tagged++
+		}
+	}
+	if tagged != 1 {
+		t.Errorf("want 1 seen-before, got %d", tagged)
+	}
+}
+
+func TestApplyBaselineEmptyPath(t *testing.T) {
+	rep := result.Report{Findings: []result.Finding{{Check: "a", Status: result.StatusOK}}}
+	out, err := applyBaseline(rep, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Findings) != 1 {
+		t.Errorf("want 1, got %d", len(out.Findings))
+	}
+}
