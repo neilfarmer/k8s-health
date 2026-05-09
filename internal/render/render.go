@@ -17,12 +17,14 @@ type Renderer interface {
 // New returns the renderer for the given name. Unknown names return an error.
 func New(name string) (Renderer, error) {
 	switch name {
-	case "", "table":
+	case "", "pretty":
+		return prettyRenderer{}, nil
+	case "table":
 		return tableRenderer{}, nil
 	case "json":
 		return jsonRenderer{}, nil
 	case "yaml":
 		return yamlRenderer{}, nil
 	}
-	return nil, fmt.Errorf("render: unknown format %q (want table|json|yaml)", name)
+	return nil, fmt.Errorf("render: unknown format %q (want pretty|table|json|yaml)", name)
 }

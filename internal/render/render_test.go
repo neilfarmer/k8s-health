@@ -23,7 +23,7 @@ func sampleReport() result.Report {
 
 func TestNewKnownFormats(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"", "table", "json", "yaml"} {
+	for _, name := range []string{"", "pretty", "table", "json", "yaml"} {
 		r, err := render.New(name)
 		if err != nil {
 			t.Errorf("render.New(%q) returned error: %v", name, err)
@@ -94,8 +94,8 @@ func TestEmptyReport(t *testing.T) {
 }
 
 // Exercise table rendering for every status (covers rank() switch arms) and
-// truncation for long resource strings.
-func TestTableAllStatusesAndTruncation(t *testing.T) {
+// confirms long messages are emitted in full (no truncation).
+func TestTableAllStatusesNoTruncation(t *testing.T) {
 	t.Parallel()
 	long := strings.Repeat("x", 200)
 	rep := result.Report{
@@ -118,7 +118,48 @@ func TestTableAllStatusesAndTruncation(t *testing.T) {
 			t.Errorf("missing status %q: %q", want, out)
 		}
 	}
-	if !strings.Contains(out, "…") {
-		t.Errorf("expected ellipsis from truncation: %q", out)
+	if got := strings.Count(out, "x"); got < 200 {
+		t.Errorf("expected at least 200 'x' across wrapped cells, got %d", got)
+	}
+}
+
+func TestPrettyRender(t *testing.T) {
+	t.Parallel()
+	r, _ := render.New("pretty")
+	var buf bytes.Buffer
+	rep := result.Report{
+		GeneratedAt: time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC),
+		Cluster:     "shire",
+		Distro:      "rke2",
+		Findings: []result.Finding{
+			{Check: "pods.backoff", Status: result.StatusCritical, Resource: "pod/api in ns/payments", Message: "CrashLoopBackOff"},
+			{Check: "services.noEndpoints", Status: result.StatusWarning, Resource: "svc/x", Message: "no endpoints"},
+			{Check: "nodes.ready", Status: result.StatusOK, Message: "all Ready"},
+			{Check: "etcd.size", Status: result.StatusSkipped, Message: "n/a"},
+		},
+	}
+	if err := r.Render(&buf, rep); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{"shire", "distro=rke2", "CRIT (1)", "WARN (1)", "1 OK", "1 SKIP", "Summary:", "CrashLoopBackOff", "no endpoints"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("pretty output missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "all Ready") {
+		t.Errorf("pretty output should collapse OK details, got:\n%s", out)
+	}
+}
+
+func TestPrettyEmptyReport(t *testing.T) {
+	t.Parallel()
+	r, _ := render.New("pretty")
+	var buf bytes.Buffer
+	if err := r.Render(&buf, result.Report{}); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !strings.Contains(buf.String(), "no findings") {
+		t.Errorf("expected 'no findings' message: %q", buf.String())
 	}
 }

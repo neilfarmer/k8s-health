@@ -34,6 +34,7 @@ type Finding struct {
 type Report struct {
 	GeneratedAt time.Time `json:"generatedAt"`
 	Cluster     string    `json:"cluster,omitempty"`
+	Distro      string    `json:"distro,omitempty"`
 	Findings    []Finding `json:"findings"`
 }
 

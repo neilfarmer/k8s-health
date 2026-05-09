@@ -42,6 +42,17 @@ func newCheckScopeCmd(g *GlobalFlags, scope, short string, cats []checks.Categor
 			if err != nil {
 				return err
 			}
+			if g.SaveBaseline != "" {
+				if err := result.SaveBaseline(g.SaveBaseline, rep); err != nil {
+					return err
+				}
+			}
+			if g.Baseline != "" {
+				rep, err = applyBaseline(rep, g.Baseline)
+				if err != nil {
+					return err
+				}
+			}
 			if err := writeReport(cmd.OutOrStdout(), rep, g); err != nil {
 				return err
 			}
@@ -78,13 +89,22 @@ func runChecks(ctx context.Context, g *GlobalFlags, cats []checks.Category) (res
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	list := checks.Filter(g.Checks, g.SkipChecks, cats)
+	distro, err := checks.ParseDistro(g.Distro)
+	if err != nil {
+		return result.Report{}, err
+	}
+	if distro == checks.DistroAuto {
+		distro = checks.DetectDistro(runCtx, env)
+	}
+
+	list := checks.Filter(g.Checks, g.SkipChecks, cats, distro)
 	caps := capabilitiesFor(env)
 
 	rep, runErr := runner.Run(runCtx, env, list, runner.Options{Capabilities: caps})
 	if runErr != nil {
 		return rep, runErr
 	}
+	rep.Distro = string(distro)
 	return applyOnlyUnhealthy(rep, g.OnlyUnhealthy), nil
 }
 
@@ -124,6 +144,34 @@ func capabilitiesFor(env *kube.Env) checks.Capabilities {
 		caps |= checks.CapInCluster
 	}
 	return caps
+}
+
+// applyBaseline reads the baseline file and tags persisting findings by
+// prefixing their Resource with "[seen-before] ". New findings are left
+// alone so they pop in the renderer.
+func applyBaseline(rep result.Report, path string) (result.Report, error) {
+	base, err := result.LoadBaseline(path)
+	if err != nil {
+		return rep, err
+	}
+	if base == nil {
+		return rep, nil
+	}
+	diff := result.Compare(base.Findings, rep.Findings)
+	persisting := make(map[string]struct{}, len(diff.Persisting))
+	for _, f := range diff.Persisting {
+		persisting[string(f.Status)+"|"+f.Check+"|"+f.Resource] = struct{}{}
+	}
+	out := rep
+	out.Findings = make([]result.Finding, len(rep.Findings))
+	for i, f := range rep.Findings {
+		key := string(f.Status) + "|" + f.Check + "|" + f.Resource
+		if _, ok := persisting[key]; ok {
+			f.Resource = "[seen-before] " + f.Resource
+		}
+		out.Findings[i] = f
+	}
+	return out, nil
 }
 
 func applyOnlyUnhealthy(rep result.Report, onlyUnhealthy bool) result.Report {
