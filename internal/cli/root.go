@@ -1,13 +1,21 @@
 // Package cli wires up the cobra command tree.
-//
-// Subcommands intentionally do not yet talk to a Kubernetes cluster — they
-// exist so the CLI surface, flag parsing, and output formatting can be
-// validated end-to-end before any client-go code lands.
 package cli
 
 import (
 	"github.com/spf13/cobra"
 )
+
+// EtcdFlags hold the etcd-specific knobs. They live on every subcommand
+// because `check cluster` runs the etcd checks too, not just `check etcd`.
+type EtcdFlags struct {
+	Mode       string
+	Endpoints  []string
+	CAFile     string
+	CertFile   string
+	KeyFile    string
+	JobImage   string
+	QuotaBytes int64
+}
 
 // GlobalFlags holds flags that apply to every subcommand. They are bound on
 // the root command so help output groups them together.
@@ -25,6 +33,7 @@ type GlobalFlags struct {
 	Timeout       string
 	LogLevel      string
 	ConfigFile    string
+	Etcd          EtcdFlags
 }
 
 // NewRootCmd builds the top-level `khealth` command.
@@ -32,14 +41,8 @@ func NewRootCmd() *cobra.Command {
 	g := &GlobalFlags{}
 
 	root := &cobra.Command{
-		Use:   "khealth",
-		Short: "Health checks and declarative tests for Kubernetes clusters",
-		Long: `khealth runs read-only health checks against a Kubernetes cluster
-and executes declarative HealthTest manifests.
-
-This is an early scaffolding build: subcommands describe their intent but do
-not yet contact a cluster. See docs/cli-reference.md for the full target
-surface.`,
+		Use:           "khealth",
+		Short:         "Health checks and declarative tests for Kubernetes clusters",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -59,10 +62,19 @@ surface.`,
 	pf.StringVar(&g.LogLevel, "log-level", "info", "error | warn | info | debug")
 	pf.StringVar(&g.ConfigFile, "config", "", "Path to khealth config file")
 
+	pf.StringVar(&g.Etcd.Mode, "etcd-mode", "auto", "etcd access: auto | direct | in-cluster | via-apiserver")
+	pf.StringSliceVar(&g.Etcd.Endpoints, "etcd-endpoints", nil, "etcd direct mode endpoints (https://host:2379)")
+	pf.StringVar(&g.Etcd.CAFile, "etcd-cacert", "", "etcd direct mode CA file")
+	pf.StringVar(&g.Etcd.CertFile, "etcd-cert", "", "etcd direct mode client cert")
+	pf.StringVar(&g.Etcd.KeyFile, "etcd-key", "", "etcd direct mode client key")
+	pf.StringVar(&g.Etcd.JobImage, "etcd-job-image", "", "khealth image used by the in-cluster etcd-probe Job")
+	pf.Int64Var(&g.Etcd.QuotaBytes, "etcd-quota-bytes", 0, "etcd backend quota (bytes); 0 uses the etcd default of 8 GiB")
+
 	root.AddCommand(
 		newCheckCmd(g),
 		newTestCmd(g),
 		newVersionCmd(),
+		newEtcdProbeCmd(),
 	)
 
 	return root

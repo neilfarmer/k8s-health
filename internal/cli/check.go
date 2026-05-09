@@ -57,6 +57,15 @@ func runChecks(ctx context.Context, g *GlobalFlags, cats []checks.Category) (res
 		LaunchMode:    kube.Mode(g.LaunchMode),
 		Namespace:     g.Namespace,
 		AllNamespaces: g.AllNamespaces,
+		Etcd: kube.EtcdOptions{
+			Mode:       g.Etcd.Mode,
+			Endpoints:  g.Etcd.Endpoints,
+			CAFile:     g.Etcd.CAFile,
+			CertFile:   g.Etcd.CertFile,
+			KeyFile:    g.Etcd.KeyFile,
+			JobImage:   g.Etcd.JobImage,
+			QuotaBytes: g.Etcd.QuotaBytes,
+		},
 	})
 	if err != nil {
 		return result.Report{}, fmt.Errorf("build kube env: %w", err)
