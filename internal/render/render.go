@@ -19,6 +19,8 @@ func New(name string) (Renderer, error) {
 	switch name {
 	case "", "pretty":
 		return prettyRenderer{}, nil
+	case "compact":
+		return compactRenderer{}, nil
 	case "table":
 		return tableRenderer{}, nil
 	case "json":
@@ -26,5 +28,5 @@ func New(name string) (Renderer, error) {
 	case "yaml":
 		return yamlRenderer{}, nil
 	}
-	return nil, fmt.Errorf("render: unknown format %q (want pretty|table|json|yaml)", name)
+	return nil, fmt.Errorf("render: unknown format %q (want pretty|compact|table|json|yaml)", name)
 }

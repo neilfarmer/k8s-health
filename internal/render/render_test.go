@@ -23,7 +23,7 @@ func sampleReport() result.Report {
 
 func TestNewKnownFormats(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"", "pretty", "table", "json", "yaml"} {
+	for _, name := range []string{"", "pretty", "compact", "table", "json", "yaml"} {
 		r, err := render.New(name)
 		if err != nil {
 			t.Errorf("render.New(%q) returned error: %v", name, err)
@@ -149,6 +149,62 @@ func TestPrettyRender(t *testing.T) {
 	}
 	if strings.Contains(out, "all Ready") {
 		t.Errorf("pretty output should collapse OK details, got:\n%s", out)
+	}
+}
+
+func TestCompactRender(t *testing.T) {
+	t.Parallel()
+	r, _ := render.New("compact")
+	var buf bytes.Buffer
+	rep := result.Report{
+		GeneratedAt: time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC),
+		Cluster:     "shire",
+		Distro:      "rke2",
+		Findings: []result.Finding{
+			{Check: "pods.backoff", Status: result.StatusCritical, Resource: "pod/api in ns/payments", Message: "CrashLoopBackOff"},
+			{Check: "pods.backoff", Status: result.StatusCritical, Resource: "[seen-before] pod/db in ns/payments", Message: "CrashLoopBackOff"},
+			{Check: "services.noEndpoints", Status: result.StatusWarning, Resource: "svc/x", Message: "no endpoints"},
+			{Check: "nodes.ready", Status: result.StatusOK, Message: "all Ready"},
+			{Check: "etcd.size", Status: result.StatusSkipped, Message: "n/a"},
+		},
+	}
+	if err := r.Render(&buf, rep); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"shire", "distro=rke2",
+		"CRIT (2)", "WARN (1)", "1 OK", "1 SKIP",
+		"▌", "pods.backoff", "pod/api in ns/payments", "CrashLoopBackOff",
+		"pod/db in ns/payments", // [seen-before] prefix stripped for display
+		"Summary:",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("compact output missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "[seen-before]") {
+		t.Errorf("compact should strip [seen-before] prefix, got:\n%s", out)
+	}
+	if strings.Contains(out, "all Ready") {
+		t.Errorf("compact should collapse OK details, got:\n%s", out)
+	}
+	// One finding per WARN/CRIT line — no per-resource indentation explosion.
+	gutters := strings.Count(out, "▌")
+	if gutters != 3 {
+		t.Errorf("expected 3 gutter bars (one per CRIT+WARN finding), got %d in:\n%s", gutters, out)
+	}
+}
+
+func TestCompactEmptyReport(t *testing.T) {
+	t.Parallel()
+	r, _ := render.New("compact")
+	var buf bytes.Buffer
+	if err := r.Render(&buf, result.Report{}); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !strings.Contains(buf.String(), "no findings") {
+		t.Errorf("expected 'no findings' message: %q", buf.String())
 	}
 }
 

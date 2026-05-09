@@ -24,7 +24,7 @@ Global Flags:
   -n, --namespace string        Namespace scope for namespaced checks
   -A, --all-namespaces          Run namespaced checks across all namespaces
       --launch-mode string      out-of-cluster | in-cluster | auto (default "auto")
-  -o, --output string           table | json | yaml | junit | prom (default "table")
+  -o, --output string           pretty | compact | table | json | yaml (default "pretty")
       --only-unhealthy          Suppress findings with status OK
       --strict                  Treat WARN as failure (exit 2)
       --checks strings          Comma-separated check IDs to include
