@@ -22,6 +22,7 @@ func init() {
 	Register(&etcdHealth{})
 	Register(&etcdSize{})
 	Register(&etcdDefrag{})
+	Register(&etcdMembers{})
 }
 
 // collectEtcdFn is the indirection used by collectEtcdFor; tests substitute
@@ -42,6 +43,7 @@ func collectEtcdFor(ctx context.Context, env *kube.Env) (*etcd.Status, error) {
 	reachers := etcd.Reachers{
 		ViaAPIServer: etcd.ViaAPIServer(env.Clientset),
 		InClusterJob: etcd.InClusterJob(env.Clientset),
+		PodExec:      etcd.PodExec(env.Clientset, env.Config),
 	}
 	return collectEtcdFn(ctx, opts, reachers)
 }
@@ -202,6 +204,68 @@ func (c etcdDefrag) Run(ctx context.Context, env *kube.Env) []result.Finding {
 			Check: c.ID(), Status: result.StatusOK,
 			Message: fmt.Sprintf("etcd fragmentation %.1f%%", frag),
 			Detail:  detail,
+		}}
+	}
+}
+
+// --- etcd.members ----------------------------------------------------------
+
+type etcdMembers struct{}
+
+func (etcdMembers) ID() string             { return "etcd.members" }
+func (etcdMembers) Description() string    { return "etcd member count and per-member reachability" }
+func (etcdMembers) Categories() []Category { return []Category{CategoryControlPlane} }
+func (etcdMembers) Requires() Capabilities { return CapAPIServer }
+
+func (c etcdMembers) Run(ctx context.Context, env *kube.Env) []result.Finding {
+	st, err := collectEtcdFor(ctx, env)
+	if err != nil {
+		if errors.Is(err, etcd.ErrUnavailable) {
+			return []result.Finding{{Check: c.ID(), Status: result.StatusSkipped, Message: err.Error()}}
+		}
+		return unknownFromErr(c.ID(), "collect etcd", err)
+	}
+	if len(st.Members) == 0 {
+		return []result.Finding{{
+			Check: c.ID(), Status: result.StatusSkipped,
+			Message: fmt.Sprintf("etcd member data unavailable in mode=%s", st.Mode),
+		}}
+	}
+	reachable := 0
+	unreachable := []string{}
+	for _, m := range st.Members {
+		if m.Reachable {
+			reachable++
+			continue
+		}
+		unreachable = append(unreachable, m.Endpoint)
+	}
+	total := len(st.Members)
+	detail := map[string]string{
+		"mode":      string(st.Mode),
+		"members":   fmt.Sprintf("%d", total),
+		"reachable": fmt.Sprintf("%d", reachable),
+	}
+	switch {
+	case reachable == 0:
+		return []result.Finding{{
+			Check: c.ID(), Status: result.StatusCritical, Detail: detail,
+			Message: fmt.Sprintf("0/%d etcd members reachable", total),
+		}}
+	case reachable < total:
+		return []result.Finding{{
+			Check: c.ID(), Status: result.StatusWarning, Detail: detail,
+			Message: fmt.Sprintf("%d/%d members reachable; unreachable: %v", reachable, total, unreachable),
+		}}
+	case total < 3:
+		return []result.Finding{{
+			Check: c.ID(), Status: result.StatusWarning, Detail: detail,
+			Message: fmt.Sprintf("%d etcd member(s) — HA needs 3 or more", total),
+		}}
+	default:
+		return []result.Finding{{
+			Check: c.ID(), Status: result.StatusOK, Detail: detail,
+			Message: fmt.Sprintf("%d etcd members, all reachable", total),
 		}}
 	}
 }

@@ -17,6 +17,7 @@ package etcd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -29,6 +30,7 @@ const (
 	ModeDirect       Mode = "direct"
 	ModeInClusterJob Mode = "in-cluster"
 	ModeViaAPIServer Mode = "via-apiserver"
+	ModePodExec      Mode = "pod-exec"
 )
 
 // MemberStatus is one etcd member's view from Maintenance.Status.
@@ -120,6 +122,11 @@ func Collect(ctx context.Context, opts Options, reachers Reachers) (*Status, err
 		return reachers.InClusterJob(ctx, opts)
 	case ModeViaAPIServer:
 		return reachers.ViaAPIServer(ctx, opts)
+	case ModePodExec:
+		if reachers.PodExec == nil {
+			return nil, fmt.Errorf("%w: pod-exec reacher not configured", ErrUnavailable)
+		}
+		return reachers.PodExec(ctx, opts)
 	case ModeAuto, "":
 		return collectAuto(ctx, opts, reachers)
 	}
@@ -131,11 +138,21 @@ func Collect(ctx context.Context, opts Options, reachers Reachers) (*Status, err
 type Reachers struct {
 	InClusterJob func(ctx context.Context, opts Options) (*Status, error)
 	ViaAPIServer func(ctx context.Context, opts Options) (*Status, error)
+	PodExec      func(ctx context.Context, opts Options) (*Status, error)
 }
 
 func collectAuto(ctx context.Context, opts Options, reachers Reachers) (*Status, error) {
 	if len(opts.Endpoints) > 0 {
 		s, err := collectDirect(ctx, opts)
+		if err == nil {
+			return s, nil
+		}
+		if !errors.Is(err, ErrUnavailable) {
+			return s, err
+		}
+	}
+	if reachers.PodExec != nil {
+		s, err := reachers.PodExec(ctx, opts)
 		if err == nil {
 			return s, nil
 		}
