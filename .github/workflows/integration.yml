@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.25"
+  GO_VERSION: "1.26"
   KIND_VERSION: v0.24.0
   K8S_VERSION: v1.31.0
 

@@ -1,0 +1,50 @@
+# One-shot in-cluster invocation of `khealth check cluster`.
+#
+# Apply deploy/in-cluster/rbac.yaml first.
+#
+#   kubectl apply -f deploy/in-cluster/rbac.yaml
+#   kubectl apply -f deploy/in-cluster/job.yaml
+#   kubectl logs -n khealth job/khealth-check-once -f
+#   kubectl delete -f deploy/in-cluster/job.yaml
+#
+# Replace the image tag with the version you want to run.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: khealth-check-once
+  namespace: khealth
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: khealth
+        app.kubernetes.io/component: check
+    spec:
+      serviceAccountName: khealth
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: khealth
+          image: ghcr.io/neilfarmer/k8s-health:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - check
+            - cluster
+            - --launch-mode=in-cluster
+            - --all-namespaces
+            - --output=json
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 500m, memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

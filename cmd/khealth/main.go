@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -20,6 +21,12 @@ func run() int {
 	defer stop()
 
 	if err := cli.NewRootCmd().ExecuteContext(ctx); err != nil {
+		var ec cli.ExitCoder
+		if errors.As(err, &ec) {
+			// findings-driven exit; the renderer already wrote the report,
+			// no need to print the error again.
+			return ec.Code()
+		}
 		fmt.Fprintln(os.Stderr, "khealth:", err)
 		return 3
 	}

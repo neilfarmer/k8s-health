@@ -23,7 +23,7 @@ GOFLAGS ?=
 # toolchain directive in go.mod, the auto bootstrap can flake on -coverpkg
 # cross-package coverage with "no such tool covdata" for packages that have
 # no test files. Pinning avoids the re-exec and the quirk.
-export GOTOOLCHAIN ?= go1.25.9
+export GOTOOLCHAIN ?= go1.26.3
 
 .PHONY: help
 help: ## Show this help
