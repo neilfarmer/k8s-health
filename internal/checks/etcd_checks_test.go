@@ -43,7 +43,7 @@ func TestHumanBytes(t *testing.T) {
 // /readyz proxy returns 404, so we expect a SKIP finding.
 func TestEtcdChecksSkipAgainstFakeClient(t *testing.T) {
 	t.Parallel()
-	for _, c := range []Check{&etcdHealth{}, &etcdSize{}, &etcdDefrag{}} {
+	for _, c := range []Check{&etcdHealth{}, &etcdSize{}, &etcdDefrag{}, &etcdMembers{}} {
 		got := runCheck(t, c, envWithObjects())
 		// Either SKIP (mode unavailable) or UNKNOWN (parse error). Both
 		// non-blocking; we just want to make sure they don't panic and
@@ -158,6 +158,66 @@ func TestEtcdDefragBands(t *testing.T) {
 				}, nil
 			}
 			got := runCheck(t, &etcdDefrag{}, envWithObjects())
+			if statusCounts(got)[tc.want] != 1 {
+				t.Fatalf("want %s, got %+v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestEtcdMembersBands(t *testing.T) {
+	orig := collectEtcdFn
+	t.Cleanup(func() { collectEtcdFn = orig })
+
+	cases := []struct {
+		name    string
+		members []etcd.MemberStatus
+		want    result.Status
+	}{
+		{
+			"three reachable",
+			[]etcd.MemberStatus{
+				{Endpoint: "a", Reachable: true},
+				{Endpoint: "b", Reachable: true},
+				{Endpoint: "c", Reachable: true},
+			},
+			result.StatusOK,
+		},
+		{
+			"one unreachable",
+			[]etcd.MemberStatus{
+				{Endpoint: "a", Reachable: true},
+				{Endpoint: "b", Reachable: false},
+				{Endpoint: "c", Reachable: true},
+			},
+			result.StatusWarning,
+		},
+		{
+			"all down",
+			[]etcd.MemberStatus{
+				{Endpoint: "a", Reachable: false},
+				{Endpoint: "b", Reachable: false},
+			},
+			result.StatusCritical,
+		},
+		{
+			"too few",
+			[]etcd.MemberStatus{
+				{Endpoint: "a", Reachable: true},
+				{Endpoint: "b", Reachable: true},
+			},
+			result.StatusWarning,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			collectEtcdFn = func(_ context.Context, _ etcd.Options, _ etcd.Reachers) (*etcd.Status, error) {
+				return &etcd.Status{
+					Mode: etcd.ModePodExec, Reachable: true, HasLeader: true,
+					Members: tc.members,
+				}, nil
+			}
+			got := runCheck(t, &etcdMembers{}, envWithObjects())
 			if statusCounts(got)[tc.want] != 1 {
 				t.Fatalf("want %s, got %+v", tc.want, got)
 			}

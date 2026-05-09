@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/neilfarmer/k8s-health/internal/kube"
@@ -21,39 +20,46 @@ func (corednsReplicas) Categories() []Category { return []Category{CategoryContr
 func (corednsReplicas) Requires() Capabilities { return CapAPIServer }
 
 func (c corednsReplicas) Run(ctx context.Context, env *kube.Env) []result.Finding {
-	d, err := env.Clientset.AppsV1().Deployments("kube-system").Get(ctx, "coredns", metav1.GetOptions{})
+	deps, err := env.Clientset.AppsV1().Deployments("kube-system").List(ctx, metav1.ListOptions{
+		LabelSelector: "k8s-app=kube-dns",
+	})
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return []result.Finding{{
-				Check:    c.ID(),
-				Status:   result.StatusSkipped,
-				Resource: "deployment/coredns in ns/kube-system",
-				Message:  "CoreDNS deployment not found (skipping)",
-			}}
+		return unknownFromErr(c.ID(), "list coredns", err)
+	}
+	if len(deps.Items) == 0 {
+		return []result.Finding{{
+			Check:   c.ID(),
+			Status:  result.StatusSkipped,
+			Message: "no Deployment with label k8s-app=kube-dns in kube-system",
+		}}
+	}
+
+	out := make([]result.Finding, 0, len(deps.Items))
+	for i := range deps.Items {
+		d := &deps.Items[i]
+		desired := int32(0)
+		if d.Spec.Replicas != nil {
+			desired = *d.Spec.Replicas
 		}
-		return unknownFromErr(c.ID(), "get coredns", err)
+		ready := d.Status.ReadyReplicas
+		res := resourceID("deployment", d.Namespace, d.Name)
+		switch {
+		case ready == 0 && desired > 0:
+			out = append(out, result.Finding{
+				Check: c.ID(), Status: result.StatusCritical,
+				Resource: res, Message: fmt.Sprintf("0/%d ready", desired),
+			})
+		case ready < desired:
+			out = append(out, result.Finding{
+				Check: c.ID(), Status: result.StatusWarning,
+				Resource: res, Message: fmt.Sprintf("%d/%d ready", ready, desired),
+			})
+		default:
+			out = append(out, result.Finding{
+				Check: c.ID(), Status: result.StatusOK,
+				Resource: res, Message: fmt.Sprintf("CoreDNS %d/%d ready", ready, desired),
+			})
+		}
 	}
-	desired := int32(0)
-	if d.Spec.Replicas != nil {
-		desired = *d.Spec.Replicas
-	}
-	ready := d.Status.ReadyReplicas
-	switch {
-	case ready == 0 && desired > 0:
-		return []result.Finding{{
-			Check:    c.ID(),
-			Status:   result.StatusCritical,
-			Resource: "deployment/coredns in ns/kube-system",
-			Message:  fmt.Sprintf("0/%d ready", desired),
-		}}
-	case ready < desired:
-		return []result.Finding{{
-			Check:    c.ID(),
-			Status:   result.StatusWarning,
-			Resource: "deployment/coredns in ns/kube-system",
-			Message:  fmt.Sprintf("%d/%d ready", ready, desired),
-		}}
-	default:
-		return []result.Finding{okFinding(c.ID(), fmt.Sprintf("CoreDNS %d/%d ready", ready, desired))}
-	}
+	return out
 }

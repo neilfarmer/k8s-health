@@ -58,7 +58,7 @@ func TestRegistryFilter(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := r.Filter(tc.include, tc.exclude, tc.cats)
+			got := r.Filter(tc.include, tc.exclude, tc.cats, DistroAuto)
 			gotIDs := make([]string, len(got))
 			for i, c := range got {
 				gotIDs[i] = c.ID()
@@ -87,7 +87,7 @@ func TestDefaultRegistryAccessors(t *testing.T) {
 	if len(All()) == 0 {
 		t.Fatal("expected production checks registered in Default")
 	}
-	if got := Filter(nil, nil, []Category{CategoryWorkload}); len(got) == 0 {
+	if got := Filter(nil, nil, []Category{CategoryWorkload}, DistroAuto); len(got) == 0 {
 		t.Fatal("expected at least one workload check registered")
 	}
 }

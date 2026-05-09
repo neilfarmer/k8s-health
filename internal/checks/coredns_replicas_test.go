@@ -15,9 +15,13 @@ func TestCoreDNSReplicas(t *testing.T) {
 	r2 := int32(2)
 	dep := func(ready int32) *appsv1.Deployment {
 		return &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{Name: "coredns", Namespace: "kube-system"},
-			Spec:       appsv1.DeploymentSpec{Replicas: &r2},
-			Status:     appsv1.DeploymentStatus{ReadyReplicas: ready},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "coredns",
+				Namespace: "kube-system",
+				Labels:    map[string]string{"k8s-app": "kube-dns"},
+			},
+			Spec:   appsv1.DeploymentSpec{Replicas: &r2},
+			Status: appsv1.DeploymentStatus{ReadyReplicas: ready},
 		}
 	}
 
