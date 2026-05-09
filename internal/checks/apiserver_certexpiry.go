@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -53,21 +54,30 @@ func (c apiserverCertExpiry) Run(ctx context.Context, env *kube.Env) []result.Fi
 		tlsCfg = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
 	tlsCfg = tlsCfg.Clone()
-	// We don't need verified chain for expiry; allow self-signed. The leaf
-	// cert is what we read regardless.
-	tlsCfg.InsecureSkipVerify = true
-	tlsCfg.VerifyPeerCertificate = nil
 	if tlsCfg.MinVersion == 0 {
 		tlsCfg.MinVersion = tls.VersionTLS12
 	}
+	// Intentionally NO InsecureSkipVerify here. We trust the kubeconfig's
+	// configured CA (via transport.TLSConfigFor). When the apiserver cert
+	// has *already* expired, the dial fails and we report it via
+	// isCertExpiredErr below.
 
 	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	leaf, err := dialAndReadLeaf(dialCtx, host, tlsCfg)
 	if err != nil {
+		if isCertExpiredErr(err) {
+			return []result.Finding{{
+				Check:    c.ID(),
+				Status:   result.StatusCritical,
+				Resource: host,
+				Message:  "API server TLS cert is already expired (handshake refused)",
+			}}
+		}
 		return []result.Finding{{
-			Check: c.ID(), Status: result.StatusUnknown,
+			Check:   c.ID(),
+			Status:  result.StatusUnknown,
 			Message: fmt.Sprintf("TLS dial %s: %v", host, err),
 		}}
 	}
@@ -111,6 +121,25 @@ func dialAndReadLeaf(ctx context.Context, addr string, tlsCfg *tls.Config) (*x50
 		return nil, fmt.Errorf("no peer certificates")
 	}
 	return state.PeerCertificates[0], nil
+}
+
+// isCertExpiredErr reports whether err is the specific "the cert has
+// already expired" path emitted by the TLS / x509 stack.
+func isCertExpiredErr(err error) bool {
+	var ie *x509.CertificateInvalidError
+	if errors.As(err, &ie) && ie.Reason == x509.Expired {
+		return true
+	}
+	// Go also wraps verification errors in *tls.CertificateVerificationError
+	// (Go 1.20+); inspect its Unwrap if present.
+	var ve *tls.CertificateVerificationError
+	if errors.As(err, &ve) {
+		var inner *x509.CertificateInvalidError
+		if errors.As(ve.Err, &inner) && inner.Reason == x509.Expired {
+			return true
+		}
+	}
+	return false
 }
 
 func certFinding(id, host string, leaf *x509.Certificate) result.Finding {

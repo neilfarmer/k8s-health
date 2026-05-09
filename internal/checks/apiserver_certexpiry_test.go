@@ -1,12 +1,9 @@
 package checks
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"math/big"
+	"encoding/pem"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -46,15 +43,24 @@ func TestCertFinding(t *testing.T) {
 	}
 }
 
-// Spin up an httptest TLS server with a freshly generated cert and verify
-// the check parses the leaf via dialAndReadLeaf.
+// Spin up an httptest TLS server, install its cert as the env's CA, and
+// verify the check parses the leaf via dialAndReadLeaf without disabling
+// TLS verification.
 func TestApiserverCertExpiryEndToEnd(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewTLSServer(nil)
 	t.Cleanup(srv.Close)
 
+	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
+
 	env := &kube.Env{
-		Config:    &rest.Config{Host: srv.URL},
+		Config: &rest.Config{
+			Host: srv.URL,
+			TLSClientConfig: rest.TLSClientConfig{
+				CAData:     caPEM,
+				ServerName: "127.0.0.1", // httptest cert is issued for "127.0.0.1"
+			},
+		},
 		Clientset: fake.NewSimpleClientset(),
 	}
 	got := runCheck(t, &apiserverCertExpiry{}, env)
@@ -62,20 +68,21 @@ func TestApiserverCertExpiryEndToEnd(t *testing.T) {
 		t.Fatalf("want 1 finding, got %+v", got)
 	}
 	// httptest cert is valid for the lifetime of the test (months/years
-	// depending on Go version), so OK is expected.
+	// depending on Go version), so OK or WARN is expected.
 	if got[0].Status != result.StatusOK && got[0].Status != result.StatusWarning {
 		t.Fatalf("want OK or WARN, got %s (%s)", got[0].Status, got[0].Message)
 	}
 }
 
-// helper to silence unused-import warning if x509-related imports drift.
-var _ = func() *x509.Certificate {
-	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		NotAfter:     time.Now().Add(time.Hour),
+func TestIsCertExpiredErr(t *testing.T) {
+	t.Parallel()
+	if isCertExpiredErr(nil) {
+		t.Error("nil err should not be flagged as expired")
 	}
-	der, _ := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
-	cert, _ := x509.ParseCertificate(der)
-	return cert
+	if !isCertExpiredErr(&x509.CertificateInvalidError{Reason: x509.Expired}) {
+		t.Error("Expired Reason should be flagged")
+	}
+	if isCertExpiredErr(&x509.CertificateInvalidError{Reason: x509.NotAuthorizedToSign}) {
+		t.Error("non-Expired Reason should not be flagged")
+	}
 }
