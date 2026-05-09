@@ -87,8 +87,10 @@ func (r *Registry) All() []Check {
 
 // Filter returns checks matching include (if non-empty) and not in exclude.
 // cats filters to checks that overlap with at least one of the given
-// categories; nil or empty cats means "all categories".
-func (r *Registry) Filter(include, exclude []string, cats []Category) []Check {
+// categories; nil or empty cats means "all categories". distro gates
+// DistroAware checks; pass DistroAuto or "" to disable distro filtering
+// (every check, including distro-specific ones, is allowed through).
+func (r *Registry) Filter(include, exclude []string, cats []Category, distro Distro) []Check {
 	includeSet := stringSet(include)
 	excludeSet := stringSet(exclude)
 	catSet := map[Category]struct{}{}
@@ -109,6 +111,9 @@ func (r *Registry) Filter(include, exclude []string, cats []Category) []Check {
 		if len(catSet) > 0 && !categoryMatch(c, catSet) {
 			continue
 		}
+		if distro != "" && distro != DistroAuto && !AppliesToDistro(c, distro) {
+			continue
+		}
 		out = append(out, c)
 	}
 	return out
@@ -124,8 +129,8 @@ func Register(c Check) { Default.Register(c) }
 func All() []Check { return Default.All() }
 
 // Filter is shorthand for Default.Filter.
-func Filter(include, exclude []string, cats []Category) []Check {
-	return Default.Filter(include, exclude, cats)
+func Filter(include, exclude []string, cats []Category, distro Distro) []Check {
+	return Default.Filter(include, exclude, cats, distro)
 }
 
 func stringSet(in []string) map[string]struct{} {
