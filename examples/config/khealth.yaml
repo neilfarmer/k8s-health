@@ -1,0 +1,45 @@
+# Example khealth config file.
+#
+# Resolution order (highest precedence first):
+#   1. CLI flags
+#   2. Environment variables (KHEALTH_*)
+#   3. This file (location: --config, $KHEALTH_CONFIG, ~/.config/khealth/config.yaml)
+#   4. Built-in defaults
+#
+# Anything you can pass on the CLI can be set here under `defaults`.
+schemaVersion: 1
+
+defaults:
+  output: table          # table | json | yaml | junit | prom
+  allNamespaces: true
+  onlyUnhealthy: false
+  strict: false
+  timeout: 2m
+  logLevel: info
+
+# Default check selection. Empty `include` means "run them all".
+checks:
+  include: []
+  exclude:
+    - events.warnings    # noisy on this cluster; suppressed globally
+
+# Per-cluster overrides keyed by kube context name.
+contexts:
+  prod-eu-west-1:
+    defaults:
+      strict: true
+    checks:
+      exclude: []        # turn warnings back on in prod
+    etcd:
+      mode: in-cluster   # direct | in-cluster | via-apiserver | auto
+  staging-eu-west-1:
+    etcd:
+      mode: via-apiserver
+
+# Global etcd settings (used when no per-context override is set).
+etcd:
+  mode: auto
+  endpoints: []
+  cacert: ""
+  cert: ""
+  key: ""

@@ -1,0 +1,51 @@
+# HTTP smoke test for an internal service.
+#
+# Spins up a curl pod in the target namespace and asserts the service
+# returns 200 OK with a healthy body and acceptable latency.
+#
+# Run:
+#   khealth test run examples/healthtests/http-probe.yaml
+apiVersion: khealth.io/v1alpha1
+kind: HealthTest
+metadata:
+  name: http-probe-payments
+  labels:
+    suite: smoke
+spec:
+  description: payments-api /healthz returns 200 within 500ms
+  timeout: 2m
+  setup:
+    - apply:
+        inline: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: khealth-curl
+            namespace: payments
+            labels:
+              app: khealth-curl
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: curl
+                image: curlimages/curl:8.6.0
+                command: ["sleep", "180"]
+      waitFor:
+        condition: Ready
+        timeout: 30s
+  steps:
+    - name: healthz-200
+      http:
+        url: http://payments-api.payments.svc.cluster.local/healthz
+        method: GET
+        headers:
+          X-Smoke-Test: khealth
+        expect:
+          statusCode: 200
+          body:
+            contains: "ok"
+          latency:
+            lessThan: 500ms
+  cleanup:
+    onSuccess: true
+    onFailure: false
