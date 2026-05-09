@@ -85,12 +85,16 @@ jobs:
           version: latest
           args: build --snapshot --clean --single-target
       - name: smoke-test the binary
+        # No cluster reachable from the build sandbox — only exercise commands
+        # that don't talk to an apiserver. Real check coverage happens in the
+        # `integration` workflow against kind.
         run: |
           set -euo pipefail
           BIN=$(find dist -type f -name khealth | head -n1)
           test -n "$BIN"
-          "$BIN" version
-          "$BIN" check cluster --output json
+          "$BIN" version --json
+          "$BIN" check cluster --help
+          "$BIN" check pods --help
       - name: upload snapshot binary
         uses: actions/upload-artifact@v4
         with:
