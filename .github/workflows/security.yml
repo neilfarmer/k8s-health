@@ -72,7 +72,7 @@ jobs:
       - name: build local image
         run: docker build -t khealth:scan .
       - name: trivy scan
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: khealth:scan
           format: sarif
