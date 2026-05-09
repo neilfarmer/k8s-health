@@ -1,0 +1,16 @@
+# Dockerfile used by goreleaser at release time.
+#
+# goreleaser builds the binary outside Docker (see `builds:` in
+# .goreleaser.yaml) and sets the docker build context to the per-arch
+# dist subdirectory containing only that binary. So the only thing this
+# Dockerfile needs to do is COPY it into a hardened final image.
+#
+# The repo-root `Dockerfile` is a different beast: it builds from source
+# for `make docker` and ad-hoc `docker build .` use.
+
+# syntax=docker/dockerfile:1.7
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY khealth /usr/local/bin/khealth
+USER nonroot:nonroot
+ENTRYPOINT ["/usr/local/bin/khealth"]
