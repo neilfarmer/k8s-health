@@ -24,6 +24,10 @@ func init() {
 	Register(&etcdDefrag{})
 }
 
+// collectEtcdFn is the indirection used by collectEtcdFor; tests substitute
+// it to exercise the OK / WARN / CRIT branches without spinning up real etcd.
+var collectEtcdFn = etcd.Collect
+
 // collectEtcdFor builds Options and Reachers from env and runs etcd.Collect.
 func collectEtcdFor(ctx context.Context, env *kube.Env) (*etcd.Status, error) {
 	opts := etcd.Options{
@@ -39,7 +43,7 @@ func collectEtcdFor(ctx context.Context, env *kube.Env) (*etcd.Status, error) {
 		ViaAPIServer: etcd.ViaAPIServer(env.Clientset),
 		InClusterJob: etcd.InClusterJob(env.Clientset),
 	}
-	return etcd.Collect(ctx, opts, reachers)
+	return collectEtcdFn(ctx, opts, reachers)
 }
 
 // --- etcd.health -----------------------------------------------------------

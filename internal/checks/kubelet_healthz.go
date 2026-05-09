@@ -15,8 +15,10 @@ func init() { Register(&kubeletHealthz{}) }
 
 type kubeletHealthz struct{}
 
-func (kubeletHealthz) ID() string             { return "kubelet.healthz" }
-func (kubeletHealthz) Description() string    { return "Each node's kubelet /healthz returns ok via the apiserver proxy" }
+func (kubeletHealthz) ID() string { return "kubelet.healthz" }
+func (kubeletHealthz) Description() string {
+	return "Each node's kubelet /healthz returns ok via the apiserver proxy"
+}
 func (kubeletHealthz) Categories() []Category { return []Category{CategoryNode} }
 func (kubeletHealthz) Requires() Capabilities { return CapAPIServer }
 

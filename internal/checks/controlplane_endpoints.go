@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/neilfarmer/k8s-health/internal/kube"
@@ -16,8 +16,11 @@ func init() { Register(&controlPlaneEndpoints{}) }
 
 type controlPlaneEndpoints struct{}
 
-func (controlPlaneEndpoints) ID() string          { return "controlplane.endpoints" }
-func (controlPlaneEndpoints) Description() string { return "default/kubernetes Service has ready endpoints" }
+func (controlPlaneEndpoints) ID() string { return "controlplane.endpoints" }
+func (controlPlaneEndpoints) Description() string {
+	return "default/kubernetes Service has ready endpoints"
+}
+
 func (controlPlaneEndpoints) Categories() []Category {
 	return []Category{CategoryControlPlane}
 }

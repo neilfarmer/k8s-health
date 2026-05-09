@@ -35,7 +35,7 @@ func InClusterJob(clientset kubernetes.Interface) func(ctx context.Context, opts
 		job := buildEtcdProbeJob(jobName, ns, opts.JobImage)
 		_, err := clientset.BatchV1().Jobs(ns).Create(ctx, job, metav1.CreateOptions{})
 		if err != nil {
-			return nil, fmt.Errorf("%w: create probe job: %v", ErrUnavailable, err)
+			return nil, fmt.Errorf("%w: create probe job: %w", ErrUnavailable, err)
 		}
 		defer func() {
 			policy := metav1.DeletePropagationBackground
@@ -72,12 +72,12 @@ func InClusterJob(clientset kubernetes.Interface) func(ctx context.Context, opts
 		req := clientset.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{})
 		stream, err := req.Stream(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("%w: get probe logs: %v", ErrUnavailable, err)
+			return nil, fmt.Errorf("%w: get probe logs: %w", ErrUnavailable, err)
 		}
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 		raw, err := io.ReadAll(stream)
 		if err != nil {
-			return nil, fmt.Errorf("%w: read probe logs: %v", ErrUnavailable, err)
+			return nil, fmt.Errorf("%w: read probe logs: %w", ErrUnavailable, err)
 		}
 
 		// Probe writes a single JSON line at the end. Find it.
@@ -87,7 +87,7 @@ func InClusterJob(clientset kubernetes.Interface) func(ctx context.Context, opts
 			if !strings.HasPrefix(line, "{") {
 				continue
 			}
-			if err := json.Unmarshal([]byte(line), &st); err == nil && st.CollectedAt.IsZero() == false {
+			if err := json.Unmarshal([]byte(line), &st); err == nil && !st.CollectedAt.IsZero() {
 				st.Mode = ModeInClusterJob
 				return &st, nil
 			}
@@ -120,11 +120,11 @@ func buildEtcdProbeJob(name, ns, image string) *batchv1.Job {
 			Parallelism:             &one,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					RestartPolicy:    corev1.RestartPolicyNever,
-					HostNetwork:      true,
-					Tolerations:      tolerateAll,
-					NodeSelector:     map[string]string{"node-role.kubernetes.io/control-plane": ""},
-					SecurityContext:  &corev1.PodSecurityContext{RunAsUser: &user},
+					RestartPolicy:   corev1.RestartPolicyNever,
+					HostNetwork:     true,
+					Tolerations:     tolerateAll,
+					NodeSelector:    map[string]string{"node-role.kubernetes.io/control-plane": ""},
+					SecurityContext: &corev1.PodSecurityContext{RunAsUser: &user},
 					Containers: []corev1.Container{{
 						Name:    "probe",
 						Image:   image,

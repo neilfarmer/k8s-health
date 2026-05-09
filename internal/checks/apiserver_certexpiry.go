@@ -82,10 +82,17 @@ func dialAddr(rawHost string) (string, error) {
 	if u.Host == "" {
 		return "", fmt.Errorf("apiserver host has no authority: %q", rawHost)
 	}
-	if _, _, err := net.SplitHostPort(u.Host); err != nil {
-		return u.Host + ":443", nil
+	if hostPortHasPort(u.Host) {
+		return u.Host, nil
 	}
-	return u.Host, nil
+	return u.Host + ":443", nil
+}
+
+// hostPortHasPort reports whether s already includes an explicit port. We
+// use net.SplitHostPort as the "is port present" probe.
+func hostPortHasPort(s string) bool {
+	_, _, err := net.SplitHostPort(s)
+	return err == nil
 }
 
 func dialAndReadLeaf(ctx context.Context, addr string, tlsCfg *tls.Config) (*x509.Certificate, error) {
@@ -94,7 +101,7 @@ func dialAndReadLeaf(ctx context.Context, addr string, tlsCfg *tls.Config) (*x50
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	tlsConn, ok := conn.(*tls.Conn)
 	if !ok {
 		return nil, fmt.Errorf("not a TLS connection")
@@ -109,9 +116,9 @@ func dialAndReadLeaf(ctx context.Context, addr string, tlsCfg *tls.Config) (*x50
 func certFinding(id, host string, leaf *x509.Certificate) result.Finding {
 	until := time.Until(leaf.NotAfter)
 	detail := map[string]string{
-		"subject":   leaf.Subject.CommonName,
-		"notAfter":  leaf.NotAfter.UTC().Format(time.RFC3339),
-		"daysLeft":  fmt.Sprintf("%.1f", until.Hours()/24),
+		"subject":  leaf.Subject.CommonName,
+		"notAfter": leaf.NotAfter.UTC().Format(time.RFC3339),
+		"daysLeft": fmt.Sprintf("%.1f", until.Hours()/24),
 	}
 	switch {
 	case until <= 0:

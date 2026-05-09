@@ -50,10 +50,9 @@ Tag pushed (v*.*.*)
 
 ## Coverage threshold
 
-Unit tests run with cross-package coverage (`-coverpkg=./...`) so packages
-exercised only through other packages still count. The CI `test` job fails
-if **total coverage drops below 80%**. The threshold is also enforced
-locally:
+Unit tests run with cross-package coverage so packages exercised only
+through other packages still count. The CI `test` job fails if **total
+coverage drops below 80%**. The threshold is also enforced locally:
 
 ```sh
 make cover-check               # fails on <80%
@@ -66,10 +65,30 @@ The threshold lives in two places (kept consistent):
 - `Makefile`: `COVER_MIN ?= 80`
 - `.github/workflows/ci.yml`: `COVER_MIN: "80"` env on the gate step
 
-When adding new code, prefer keeping coverage at or above current. If the new
-code is genuinely not unit-testable (e.g. `main()` shims), exercise it via
-the integration test suite instead — those don't count toward the unit
-coverage gate but do exercise the binary end-to-end.
+### Excluded packages
+
+`internal/etcd` is **excluded from `-coverpkg`** because its direct-gRPC
+and in-cluster-Job paths only meaningfully run against a real cluster. It
+is covered by the `integration` workflow against kind. See
+[ADR-0008](adr/0008-etcd-coverage-via-integration.md) for the rationale
+and the alternatives we considered.
+
+The exclusion is implemented as:
+
+```make
+COVER_PKGS = $(shell go list ./... | grep -v '/internal/etcd' | paste -sd, -)
+```
+
+…in both the `Makefile` (`cover` target) and `.github/workflows/ci.yml`
+(`test` job). Don't drift them.
+
+### Adding new code
+
+When adding new code, prefer keeping coverage at or above current. If the
+new code is genuinely not unit-testable (e.g. `main()` shims, real gRPC
+clients), exercise it via the integration test suite instead — those
+don't count toward the unit coverage gate but do exercise the binary
+end-to-end against kind.
 
 ## Allowlisting Trivy findings
 

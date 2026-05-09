@@ -244,3 +244,90 @@ func waitForBackoff(ctx context.Context, namespace, name string) error {
 		}
 	}
 }
+
+// TestControlPlaneEndpoints asserts the default/kubernetes Service has
+// ready endpoints on a healthy kind cluster.
+func TestControlPlaneEndpointsAgainstKind(t *testing.T) {
+	requireKubeconfig(t)
+	bin := khealthBin(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	res := runBin(ctx, bin, "check", "controlplane",
+		"--output", "json",
+		"--checks", "controlplane.endpoints",
+	)
+	if res.err != nil && !isFindingsExit(res) {
+		t.Fatalf("check controlplane: %v\nstderr: %s", res.err, res.stderr)
+	}
+	rep := parseReport(t, res.stdout)
+	hit := false
+	for _, f := range rep.Findings {
+		if f.Check == "controlplane.endpoints" {
+			hit = true
+			if f.Status != "OK" {
+				t.Errorf("controlplane.endpoints status=%q want OK; msg=%q", f.Status, f.Message)
+			}
+		}
+	}
+	if !hit {
+		t.Fatalf("controlplane.endpoints finding not present; got %s", res.stdout)
+	}
+}
+
+// TestNodesVersionSkewAgainstKind asserts kubelet vs apiserver are within
+// skew on the freshly-built kind cluster (they should match exactly).
+func TestNodesVersionSkewAgainstKind(t *testing.T) {
+	requireKubeconfig(t)
+	bin := khealthBin(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	res := runBin(ctx, bin, "check", "nodes",
+		"--output", "json",
+		"--checks", "nodes.versionSkew",
+	)
+	if res.err != nil && !isFindingsExit(res) {
+		t.Fatalf("check nodes: %v\nstderr: %s", res.err, res.stderr)
+	}
+	rep := parseReport(t, res.stdout)
+	for _, f := range rep.Findings {
+		if f.Check != "nodes.versionSkew" {
+			continue
+		}
+		if f.Status == "CRIT" {
+			t.Errorf("unexpected CRIT skew on kind cluster: %s", f.Message)
+		}
+	}
+}
+
+// TestEtcdViaApiserverAgainstKind exercises etcd.health using the
+// via-apiserver mode. kind's apiserver exposes /readyz?verbose so we
+// expect an OK finding.
+func TestEtcdViaApiserverAgainstKind(t *testing.T) {
+	requireKubeconfig(t)
+	bin := khealthBin(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	res := runBin(ctx, bin, "check", "controlplane",
+		"--output", "json",
+		"--checks", "etcd.health",
+		"--etcd-mode", "via-apiserver",
+	)
+	if res.err != nil && !isFindingsExit(res) {
+		t.Fatalf("etcd via-apiserver: %v\nstderr: %s", res.err, res.stderr)
+	}
+	rep := parseReport(t, res.stdout)
+	if len(rep.Findings) == 0 {
+		t.Fatalf("expected at least one etcd.health finding; got %s", res.stdout)
+	}
+	for _, f := range rep.Findings {
+		if f.Check != "etcd.health" {
+			continue
+		}
+		if f.Status == "CRIT" {
+			t.Errorf("etcd.health via-apiserver returned CRIT against kind: %s", f.Message)
+		}
+	}
+}

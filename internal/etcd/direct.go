@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func collectDirect(ctx context.Context, opts Options) (*Status, error) {
@@ -28,9 +28,9 @@ func collectDirect(ctx context.Context, opts Options) (*Status, error) {
 		Context:     ctx,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 
 	st := &Status{
 		Mode:        ModeDirect,
@@ -43,7 +43,7 @@ func collectDirect(ctx context.Context, opts Options) (*Status, error) {
 	listCtx, cancel := context.WithTimeout(ctx, opts.DialTimeout)
 	if _, err := cli.MemberList(listCtx); err != nil {
 		cancel()
-		return nil, fmt.Errorf("%w: member list: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: member list: %w", ErrUnavailable, err)
 	}
 	cancel()
 

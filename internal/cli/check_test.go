@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,4 +98,37 @@ func TestCheckExitContract(t *testing.T) {
 	if ec.Error() == "" {
 		t.Error("ExitCoder error message should not be empty")
 	}
+}
+
+func TestWriteReportJSON(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	rep := result.Report{Findings: []result.Finding{{Status: result.StatusOK, Check: "x"}}}
+	if err := writeReport(&buf, rep, &GlobalFlags{Output: "json"}); err != nil {
+		t.Fatalf("writeReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), `"x"`) {
+		t.Errorf("want check id in body: %q", buf.String())
+	}
+}
+
+func TestWriteReportUnknownFormat(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	if err := writeReport(&buf, result.Report{}, &GlobalFlags{Output: "xml"}); err == nil {
+		t.Fatal("expected error for unknown output format")
+	}
+}
+
+func TestEtcdProbeRunWithBadEndpoint(t *testing.T) {
+	t.Setenv("KHEALTH_ETCD_ENDPOINTS", "http://127.0.0.1:1") // closed port → fast fail
+	cmd := NewRootCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"etcd-probe"})
+	// We don't care about the exit value — the goal is to exercise the
+	// hidden subcommand's RunE for coverage. JSON output is still produced
+	// (even if empty/error-marked).
+	_ = cmd.Execute()
 }

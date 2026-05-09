@@ -61,7 +61,7 @@ func (c nodesVersionSkew) Run(ctx context.Context, env *kube.Env) []result.Findi
 		if skew <= 0 {
 			continue
 		}
-		status := result.StatusOK
+		var status result.Status
 		switch {
 		case skew > kubeletCritSkew:
 			status = result.StatusCritical
@@ -76,9 +76,9 @@ func (c nodesVersionSkew) Run(ctx context.Context, env *kube.Env) []result.Findi
 			Resource: resourceID("node", "", n.Name),
 			Message:  fmt.Sprintf("kubelet %s lags apiserver v1.%d by %d minor", kubeletVer, apiMinor, skew),
 			Detail: map[string]string{
-				"kubelet":     kubeletVer,
-				"apiserver":   fmt.Sprintf("v1.%d", apiMinor),
-				"minorSkew":   strconv.Itoa(skew),
+				"kubelet":   kubeletVer,
+				"apiserver": fmt.Sprintf("v1.%d", apiMinor),
+				"minorSkew": strconv.Itoa(skew),
 			},
 		})
 	}

@@ -5,6 +5,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/version"
+	fakediscovery "k8s.io/client-go/discovery/fake"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/neilfarmer/k8s-health/internal/kube"
+	"github.com/neilfarmer/k8s-health/internal/result"
 )
 
 func TestParseMinor(t *testing.T) {
@@ -57,19 +63,49 @@ func TestParseSemverMinor(t *testing.T) {
 	}
 }
 
-// The Run path needs Discovery().ServerVersion() which fake clientset
-// supports. Use it to verify the OK path.
-func TestNodesVersionSkewOK(t *testing.T) {
-	t.Parallel()
+// envWithApiserverMinor builds a fake env where Discovery reports apiserver
+// minor M, and the cluster contains a single node running kubeletVer.
+func envWithApiserverMinor(apiserverMinor, kubeletVer string) *kube.Env {
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "n1"},
-		Status: corev1.NodeStatus{
-			NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "v1.31.2"},
-		},
+		Status:     corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: kubeletVer}},
 	}
-	got := runCheck(t, &nodesVersionSkew{}, envWithObjects(node))
-	// fake clientset returns Major=0 / Minor=0 for ServerVersion, so the
-	// kubelet at minor=31 will be perceived as ahead → no finding emitted,
-	// OK summary line appears.
-	_ = got
+	cs := fake.NewSimpleClientset(node)
+	disc := cs.Discovery().(*fakediscovery.FakeDiscovery)
+	disc.FakedServerVersion = &version.Info{Major: "1", Minor: apiserverMinor}
+	return &kube.Env{Clientset: cs, Discovery: disc, AllNamespaces: true}
+}
+
+func TestNodesVersionSkewBands(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		api     string
+		kubelet string
+		want    result.Status
+	}{
+		{"matched", "31", "v1.31.2", result.StatusOK},
+		{"warn skew", "31", "v1.29.0", result.StatusWarning},
+		{"crit skew", "33", "v1.29.0", result.StatusCritical},
+		{"kubelet ahead is OK", "30", "v1.31.2", result.StatusOK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			env := envWithApiserverMinor(tc.api, tc.kubelet)
+			got := runCheck(t, &nodesVersionSkew{}, env)
+			if statusCounts(got)[tc.want] != 1 {
+				t.Fatalf("want %s, got %+v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestNodesVersionSkewBadKubeletVersion(t *testing.T) {
+	t.Parallel()
+	env := envWithApiserverMinor("31", "garbage")
+	got := runCheck(t, &nodesVersionSkew{}, env)
+	if statusCounts(got)[result.StatusUnknown] != 1 {
+		t.Fatalf("want UNKNOWN, got %+v", got)
+	}
 }

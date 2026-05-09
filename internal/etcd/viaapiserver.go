@@ -24,7 +24,7 @@ func ViaAPIServer(clientset kubernetes.Interface) func(ctx context.Context, opts
 			Param("verbose", "true").
 			DoRaw(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
+			return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 		}
 		st := &Status{
 			Mode:        ModeViaAPIServer,

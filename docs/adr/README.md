@@ -12,6 +12,7 @@ and follows a consistent format: **Context → Decision → Consequences**.
 | 0005 | [etcd health: three collection modes](0005-etcd-health-collection.md)       | Proposed |
 | 0006 | [Output formats and exit-code contract](0006-output-formats.md)             | Proposed |
 | 0007 | [Declarative tests as local YAML, not CRDs](0007-declarative-tests-not-crds.md) | Proposed |
+| 0008 | [`internal/etcd` is covered by integration tests, not units](0008-etcd-coverage-via-integration.md) | Accepted |
 
 ## Template
 

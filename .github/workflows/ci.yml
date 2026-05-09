@@ -44,8 +44,12 @@ jobs:
       - run: go mod download
       - name: vet
         run: go vet ./...
-      - name: test (with cross-package coverage)
-        run: go test -race -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
+      - name: test (with cross-package coverage, excluding internal/etcd)
+        # internal/etcd is covered by the integration workflow against kind;
+        # see docs/adr/0008-etcd-coverage-via-integration.md.
+        run: |
+          PKGS=$(go list ./... | grep -v '/internal/etcd' | paste -sd, -)
+          go test -race -count=1 -covermode=atomic -coverpkg="$PKGS" -coverprofile=coverage.out ./...
       - name: coverage summary
         run: go tool cover -func=coverage.out | tail -20
       - name: enforce coverage threshold

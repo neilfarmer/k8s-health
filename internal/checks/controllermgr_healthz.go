@@ -15,8 +15,10 @@ const controllerMgrSecurePort = 10257
 
 type controllerMgrHealthz struct{}
 
-func (controllerMgrHealthz) ID() string             { return "controllerMgr.healthz" }
-func (controllerMgrHealthz) Description() string    { return "kube-controller-manager /healthz returns ok" }
+func (controllerMgrHealthz) ID() string { return "controllerMgr.healthz" }
+func (controllerMgrHealthz) Description() string {
+	return "kube-controller-manager /healthz returns ok"
+}
 func (controllerMgrHealthz) Categories() []Category { return []Category{CategoryControlPlane} }
 func (controllerMgrHealthz) Requires() Capabilities { return CapAPIServer }
 

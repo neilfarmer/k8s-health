@@ -23,6 +23,7 @@ import (
 // Mode names match the --etcd-mode CLI flag values.
 type Mode string
 
+// Defined etcd collection modes; see the package doc comment.
 const (
 	ModeAuto         Mode = "auto"
 	ModeDirect       Mode = "direct"
@@ -34,8 +35,8 @@ const (
 type MemberStatus struct {
 	Endpoint    string   `json:"endpoint"`
 	Version     string   `json:"version,omitempty"`
-	DBSize      int64    `json:"dbSize,omitempty"`       // bytes
-	DBSizeInUse int64    `json:"dbSizeInUse,omitempty"`  // bytes
+	DBSize      int64    `json:"dbSize,omitempty"`      // bytes
+	DBSizeInUse int64    `json:"dbSizeInUse,omitempty"` // bytes
 	LeaderID    uint64   `json:"leaderID,omitempty"`
 	RaftIndex   uint64   `json:"raftIndex,omitempty"`
 	Errors      []string `json:"errors,omitempty"`
@@ -51,8 +52,8 @@ type Alarm struct {
 // Status is what every collection mode returns. Modes that can't fill a
 // field (e.g. via-apiserver has no DBSize) leave it zero.
 type Status struct {
-	Mode       Mode           `json:"mode"`
-	CollectedAt time.Time     `json:"collectedAt"`
+	Mode        Mode      `json:"mode"`
+	CollectedAt time.Time `json:"collectedAt"`
 
 	// Reachable is true iff at least one signal indicates etcd is up.
 	Reachable bool `json:"reachable"`

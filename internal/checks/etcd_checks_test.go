@@ -1,6 +1,7 @@
 package checks
 
 import (
+	"context"
 	"testing"
 
 	"github.com/neilfarmer/k8s-health/internal/etcd"
@@ -50,5 +51,116 @@ func TestEtcdChecksSkipAgainstFakeClient(t *testing.T) {
 		if statusCounts(got)[result.StatusCritical] > 0 {
 			t.Errorf("%s: unexpected CRIT against fake client: %+v", c.ID(), got)
 		}
+	}
+}
+
+func TestEtcdHealthHappyPath(t *testing.T) {
+	orig := collectEtcdFn
+	t.Cleanup(func() { collectEtcdFn = orig })
+	collectEtcdFn = func(_ context.Context, _ etcd.Options, _ etcd.Reachers) (*etcd.Status, error) {
+		return &etcd.Status{Mode: etcd.ModeViaAPIServer, Reachable: true, HasLeader: true}, nil
+	}
+	got := runCheck(t, &etcdHealth{}, envWithObjects())
+	if statusCounts(got)[result.StatusOK] != 1 {
+		t.Fatalf("want OK, got %+v", got)
+	}
+}
+
+func TestEtcdHealthAlarms(t *testing.T) {
+	orig := collectEtcdFn
+	t.Cleanup(func() { collectEtcdFn = orig })
+	collectEtcdFn = func(_ context.Context, _ etcd.Options, _ etcd.Reachers) (*etcd.Status, error) {
+		return &etcd.Status{
+			Mode: etcd.ModeDirect, Reachable: true, HasLeader: true,
+			Alarms: []etcd.Alarm{{Type: "NOSPACE", MemberID: 1}},
+		}, nil
+	}
+	got := runCheck(t, &etcdHealth{}, envWithObjects())
+	if statusCounts(got)[result.StatusCritical] != 1 {
+		t.Fatalf("want CRIT for alarm, got %+v", got)
+	}
+}
+
+func TestEtcdHealthNoLeader(t *testing.T) {
+	orig := collectEtcdFn
+	t.Cleanup(func() { collectEtcdFn = orig })
+	collectEtcdFn = func(_ context.Context, _ etcd.Options, _ etcd.Reachers) (*etcd.Status, error) {
+		return &etcd.Status{Mode: etcd.ModeDirect, Reachable: true, HasLeader: false}, nil
+	}
+	got := runCheck(t, &etcdHealth{}, envWithObjects())
+	if statusCounts(got)[result.StatusCritical] != 1 {
+		t.Fatalf("want CRIT, got %+v", got)
+	}
+}
+
+func TestEtcdSizeBands(t *testing.T) {
+	orig := collectEtcdFn
+	t.Cleanup(func() { collectEtcdFn = orig })
+
+	cases := []struct {
+		name  string
+		size  int64
+		quota int64
+		want  result.Status
+	}{
+		{"healthy", 1024 * 1024 * 1024, 8 * 1024 * 1024 * 1024, result.StatusOK},
+		{"warn", 6*1024*1024*1024 + 200*1024*1024, 8 * 1024 * 1024 * 1024, result.StatusWarning},
+		{"crit", 7500 * 1024 * 1024, 8 * 1024 * 1024 * 1024, result.StatusCritical},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			collectEtcdFn = func(_ context.Context, _ etcd.Options, _ etcd.Reachers) (*etcd.Status, error) {
+				return &etcd.Status{
+					Mode: etcd.ModeDirect, Reachable: true, HasLeader: true,
+					SizeBytes: tc.size, SizeInUseBytes: tc.size, QuotaBytes: tc.quota,
+				}, nil
+			}
+			got := runCheck(t, &etcdSize{}, envWithObjects())
+			if statusCounts(got)[tc.want] != 1 {
+				t.Fatalf("want %s, got %+v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestEtcdSizeUnavailableSkipped(t *testing.T) {
+	orig := collectEtcdFn
+	t.Cleanup(func() { collectEtcdFn = orig })
+	collectEtcdFn = func(_ context.Context, _ etcd.Options, _ etcd.Reachers) (*etcd.Status, error) {
+		return &etcd.Status{Mode: etcd.ModeViaAPIServer, Reachable: true, HasLeader: true}, nil
+	}
+	got := runCheck(t, &etcdSize{}, envWithObjects())
+	if statusCounts(got)[result.StatusSkipped] != 1 {
+		t.Fatalf("want SKIP, got %+v", got)
+	}
+}
+
+func TestEtcdDefragBands(t *testing.T) {
+	orig := collectEtcdFn
+	t.Cleanup(func() { collectEtcdFn = orig })
+
+	cases := []struct {
+		name string
+		size int64
+		used int64
+		want result.Status
+	}{
+		{"clean", 1000, 900, result.StatusOK},
+		{"warn", 1000, 700, result.StatusWarning},
+		{"crit", 1000, 400, result.StatusCritical},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			collectEtcdFn = func(_ context.Context, _ etcd.Options, _ etcd.Reachers) (*etcd.Status, error) {
+				return &etcd.Status{
+					Mode: etcd.ModeDirect, Reachable: true, HasLeader: true,
+					SizeBytes: tc.size, SizeInUseBytes: tc.used,
+				}, nil
+			}
+			got := runCheck(t, &etcdDefrag{}, envWithObjects())
+			if statusCounts(got)[tc.want] != 1 {
+				t.Fatalf("want %s, got %+v", tc.want, got)
+			}
+		})
 	}
 }
