@@ -63,7 +63,7 @@ jobs:
         env:
           KHEALTH_BIN: ${{ github.workspace }}/dist/khealth
           KHEALTH_IMAGE: khealth:it
-        run: go test -tags=integration -timeout=15m -count=1 ./test/integration/...
+        run: go test -v -tags=integration -timeout=15m -count=1 ./test/integration/...
 
       - name: collect cluster diagnostics on failure
         if: failure()
