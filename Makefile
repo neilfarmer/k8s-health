@@ -49,9 +49,15 @@ lint: ## Run golangci-lint
 test: ## Run unit tests with race detector
 	$(GO) test -race -count=1 ./...
 
+# Packages contributing to the unit-test coverage gate. internal/etcd is
+# deliberately excluded — its direct-gRPC and in-cluster-Job code paths are
+# only meaningfully exercised against a real cluster (covered in the
+# `integration` workflow). See ADR-0008.
+COVER_PKGS = $(shell $(GO) list ./... | grep -v '/internal/etcd' | paste -sd, -)
+
 .PHONY: cover
 cover: ## Run unit tests and write coverage profile (cross-package)
-	$(GO) test -race -count=1 -covermode=atomic -coverpkg=./... -coverprofile=$(COVER_FILE) ./...
+	$(GO) test -race -count=1 -covermode=atomic -coverpkg=$(COVER_PKGS) -coverprofile=$(COVER_FILE) ./...
 	$(GO) tool cover -func=$(COVER_FILE) | tail -1
 
 .PHONY: cover-html
@@ -101,6 +107,22 @@ security: vuln gosec ## Run all security checks
 .PHONY: integration
 integration: ## Run integration tests against a local kind cluster (requires kind + kubectl)
 	./test/integration/run.sh
+
+.PHONY: local-up
+local-up: ## Stand up the kind cluster used by integration tests; build + load image
+	./hack/local-kind.sh up
+
+.PHONY: local-down
+local-down: ## Delete the local kind cluster
+	./hack/local-kind.sh down
+
+.PHONY: local-demo
+local-demo: ## local-up + apply broken resources + run `khealth check cluster`
+	./hack/local-kind.sh demo
+
+.PHONY: local-test
+local-test: ## Run `make integration` against the running local cluster (keeps it)
+	./hack/local-kind.sh test
 
 .PHONY: docker
 docker: ## Build container image (uses goreleaser-style Dockerfile)

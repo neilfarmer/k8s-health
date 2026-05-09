@@ -40,6 +40,18 @@ type Options struct {
 	LaunchMode    Mode
 	Namespace     string
 	AllNamespaces bool
+	Etcd          EtcdOptions
+}
+
+// EtcdOptions are CLI flags forwarded to the etcd checks via kube.Env.
+type EtcdOptions struct {
+	Mode       string
+	Endpoints  []string
+	CAFile     string
+	CertFile   string
+	KeyFile    string
+	JobImage   string
+	QuotaBytes int64
 }
 
 // Env is the resolved runtime environment passed to each Check.
@@ -58,6 +70,10 @@ type Env struct {
 	// Cluster is a human label for the active cluster (kubeconfig context
 	// name when out-of-cluster, otherwise the API server host).
 	Cluster string
+
+	// Etcd carries the etcd-related CLI flags through to checks that need
+	// them. Empty struct is fine — etcd checks fall back to "auto" mode.
+	Etcd EtcdOptions
 }
 
 // NamespaceForList returns the namespace to pass to a List call. Empty
@@ -105,6 +121,7 @@ func Build(opts Options) (*Env, error) {
 		Namespace:     ns,
 		AllNamespaces: opts.AllNamespaces,
 		Cluster:       cluster,
+		Etcd:          opts.Etcd,
 	}, nil
 }
 

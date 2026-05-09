@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: khealth-demo
+---
+# A pod that exits 1 in a loop — fires pods.backoff CRIT after a minute.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crashloop
+  namespace: khealth-demo
+  labels: { demo: crashloop }
+spec:
+  restartPolicy: Always
+  containers:
+    - name: app
+      image: busybox:1.36
+      command: ["sh", "-c", "exit 1"]
+---
+# An unresolvable image — fires pods.backoff CRIT (ImagePullBackOff).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: badimage
+  namespace: khealth-demo
+  labels: { demo: badimage }
+spec:
+  restartPolicy: Always
+  containers:
+    - name: app
+      image: ghcr.io/this-image-does-not-exist/x:nope
+---
+# A PVC requesting a storage class that doesn't exist — fires pvc.pending WARN
+# after the threshold (5m). Hit it manually after waiting if you want to see
+# the WARN; immediately after apply, the check stays OK by design.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: orphan
+  namespace: khealth-demo
+  labels: { demo: orphan-pvc }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: nonexistent-class
+  resources:
+    requests:
+      storage: 1Gi
+---
+# A Service whose selector matches no pods — fires services.noEndpoints WARN.
+apiVersion: v1
+kind: Service
+metadata:
+  name: empty-svc
+  namespace: khealth-demo
+  labels: { demo: empty-svc }
+spec:
+  selector: { app: nothing-here }
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+# Deployment with replicas=3 but a bad image — fires deployments.rollout CRIT.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stuck-rollout
+  namespace: khealth-demo
+  labels: { demo: stuck-rollout }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: stuck-rollout } }
+  template:
+    metadata: { labels: { app: stuck-rollout } }
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/this-image-does-not-exist/x:nope
