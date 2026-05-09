@@ -71,7 +71,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: build local image
         run: docker build -t khealth:scan .
-      - name: trivy scan
+      - name: trivy scan (sarif for security tab)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: khealth:scan
@@ -79,6 +79,16 @@ jobs:
           output: trivy.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: ./.trivyignore.yaml
+          exit-code: "0"
+      - name: trivy scan (table, fails on findings)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: khealth:scan
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: ./.trivyignore.yaml
           exit-code: "1"
       - name: upload SARIF
         if: always()

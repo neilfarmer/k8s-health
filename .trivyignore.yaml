@@ -1,0 +1,38 @@
+# Allowlist for Trivy image scans.
+#
+# Use this file to ignore vulnerabilities that have no upstream fix or that
+# are not exploitable in this binary's context. Each entry MUST include:
+#   - id: the CVE / GHSA / OSV ID
+#   - statement: short rationale (why this is safe to ignore here)
+#   - expired_at: hard expiry — the entry stops applying after this date and
+#     the CI gate will block again until it's renewed or removed.
+#
+# Optional fields:
+#   - paths: scope the ignore to specific files inside the image
+#   - purls: scope to specific package URLs (preferred for go-module CVEs)
+#
+# Add entries one at a time, with a comment above each pointing at the issue
+# tracker (GitHub issue / Jira) so we can revisit.
+#
+# Reference: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/
+
+vulnerabilities: []
+
+# Examples (delete or replace as real findings come in):
+#
+# vulnerabilities:
+#   - id: CVE-2024-12345
+#     statement: |
+#       libfoo CVE-2024-12345 — only exploitable when foo is used over the
+#       network. khealth does not import foo at runtime; the dependency is
+#       transitive via x/y. Tracked in #42.
+#     expired_at: 2026-12-31
+#     purls:
+#       - pkg:golang/example.com/foo@v1.2.3
+#
+#   - id: CVE-2024-67890
+#     statement: |
+#       Distroless base image carries a debian package with no upstream fix
+#       yet. We pin to nonroot and the binary does not invoke the affected
+#       binary. Tracked in #43.
+#     expired_at: 2026-09-30

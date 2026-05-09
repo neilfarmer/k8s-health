@@ -48,6 +48,29 @@ Tag pushed (v*.*.*)
   - `ghcr.io/neilfarmer/k8s-health:<version>` multi-arch image
   - cosign signatures (keyless, OIDC-bound to the workflow)
 
+## Allowlisting Trivy findings
+
+The `trivy-image` job blocks the build on any HIGH or CRITICAL CVE that has a
+known fix (`ignore-unfixed: true` filters out un-fixable noise). When a finding
+is genuinely safe to ignore (no upstream fix, not exploitable in our context,
+mitigated by distroless/nonroot, etc.), add it to
+[`.trivyignore.yaml`](../.trivyignore.yaml) with:
+
+- `id` — the CVE/GHSA/OSV ID
+- `statement` — short rationale explaining why this is safe here
+- `expired_at` — hard expiry date; entries auto-stop applying after this so
+  we revisit instead of carrying a quiet allowlist forever
+- `purls` (optional) — scope to specific package URLs
+
+Each entry should reference an issue tracker so the rationale is auditable.
+
+The workflow runs Trivy twice on purpose:
+
+1. SARIF output with `exit-code: 0` → uploads to the Security tab regardless
+   of findings, so they are always visible.
+2. Table output with `exit-code: 1` → fails the build with readable output
+   in the CI logs.
+
 ## Hardening / future tightening
 
 - **SLSA provenance** (`slsa-framework/slsa-github-generator`) for build
