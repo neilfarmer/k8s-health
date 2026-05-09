@@ -1,6 +1,12 @@
 # k8s-health (`khealth`)
 
-> **Status:** Planning. No implementation yet — this repo currently contains design docs, ADRs, and usage examples to scope the tool before any Go code is written.
+> **Status:** Phase-1 + Phase-2 shipped. 24 read-only checks across workloads,
+> nodes, storage, network, control plane, and events. The declarative
+> `khealth test run` runner is deferred to a follow-up. See
+> [`docs/roadmap.md`](docs/roadmap.md).
+>
+> **Install:** see [`INSTALL.md`](INSTALL.md) for `~/.local/bin` instructions
+> on Linux amd64 and macOS arm64 (no `sudo`).
 
 `khealth` is a single-binary Golang CLI for inspecting and validating the health
 of a Kubernetes cluster. It is designed to be useful in three contexts:
@@ -33,6 +39,7 @@ probes, and declarative tests, with a consistent output and exit-code contract.
 
 | Doc | Purpose |
 |-----|---------|
+| [`INSTALL.md`](INSTALL.md) | Download the binary and put it in `~/.local/bin` |
 | [`docs/architecture.md`](docs/architecture.md) | Components, data flow, packages |
 | [`docs/features.md`](docs/features.md) | Catalog of checks the tool will ship |
 | [`docs/cli-reference.md`](docs/cli-reference.md) | Commands, flags, and example invocations |
