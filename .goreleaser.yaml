@@ -51,7 +51,7 @@ dockers:
       - "ghcr.io/neilfarmer/k8s-health:{{ .Version }}-amd64"
       - "ghcr.io/neilfarmer/k8s-health:latest-amd64"
     use: buildx
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.release
     goos: linux
     goarch: amd64
     build_flag_templates:
@@ -67,7 +67,7 @@ dockers:
       - "ghcr.io/neilfarmer/k8s-health:{{ .Version }}-arm64"
       - "ghcr.io/neilfarmer/k8s-health:latest-arm64"
     use: buildx
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.release
     goos: linux
     goarch: arm64
     build_flag_templates:
