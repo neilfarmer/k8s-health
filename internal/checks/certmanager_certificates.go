@@ -23,7 +23,10 @@ func (certmanagerCertificatesNotReady) ID() string { return "certmanager.certifi
 func (certmanagerCertificatesNotReady) Description() string {
 	return "cert-manager Certificate CRs report Ready=True"
 }
-func (certmanagerCertificatesNotReady) Categories() []Category { return []Category{CategoryControlPlane} }
+
+func (certmanagerCertificatesNotReady) Categories() []Category {
+	return []Category{CategoryControlPlane}
+}
 func (certmanagerCertificatesNotReady) Requires() Capabilities { return CapAPIServer }
 
 func (c certmanagerCertificatesNotReady) Run(ctx context.Context, env *kube.Env) []result.Finding {

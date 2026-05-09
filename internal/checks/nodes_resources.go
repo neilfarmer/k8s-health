@@ -62,11 +62,11 @@ func fetchNodeMetrics(ctx context.Context, env *kube.Env) (*nodeMetricsList, err
 // nodeUsageData pairs a node with its parsed metrics + capacity, ready
 // for percent computation.
 type nodeUsageData struct {
-	Name            string
-	CPUUsageMilli   int64
-	CPUCapMilli     int64
-	MemUsageBytes   int64
-	MemCapBytes     int64
+	Name          string
+	CPUUsageMilli int64
+	CPUCapMilli   int64
+	MemUsageBytes int64
+	MemCapBytes   int64
 }
 
 func collectNodeUsage(ctx context.Context, env *kube.Env) ([]nodeUsageData, error) {
@@ -86,14 +86,14 @@ func collectNodeUsage(ctx context.Context, env *kube.Env) ([]nodeUsageData, erro
 
 	out := make([]nodeUsageData, 0, len(metrics.Items))
 	for _, m := range metrics.Items {
-		cap, ok := capByName[m.Metadata.Name]
+		nodeCap, ok := capByName[m.Metadata.Name]
 		if !ok {
 			continue
 		}
 		cpuU, _ := resource.ParseQuantity(m.Usage.CPU)
 		memU, _ := resource.ParseQuantity(m.Usage.Memory)
-		cpuC := cap[corev1.ResourceCPU]
-		memC := cap[corev1.ResourceMemory]
+		cpuC := nodeCap[corev1.ResourceCPU]
+		memC := nodeCap[corev1.ResourceMemory]
 		out = append(out, nodeUsageData{
 			Name:          m.Metadata.Name,
 			CPUUsageMilli: cpuU.MilliValue(),
@@ -174,8 +174,10 @@ func (c nodesCPU) Run(ctx context.Context, env *kube.Env) []result.Finding {
 
 type nodesMemory struct{}
 
-func (nodesMemory) ID() string             { return "nodes.memory" }
-func (nodesMemory) Description() string    { return "per-node memory usage vs capacity (via metrics-server)" }
+func (nodesMemory) ID() string { return "nodes.memory" }
+func (nodesMemory) Description() string {
+	return "per-node memory usage vs capacity (via metrics-server)"
+}
 func (nodesMemory) Categories() []Category { return []Category{CategoryNode} }
 func (nodesMemory) Requires() Capabilities { return CapAPIServer }
 

@@ -17,8 +17,10 @@ const defaultSCAnnotation = "storageclass.kubernetes.io/is-default-class"
 
 type storageclassDefault struct{}
 
-func (storageclassDefault) ID() string             { return "storageclass.default" }
-func (storageclassDefault) Description() string    { return "exactly one StorageClass annotated as default" }
+func (storageclassDefault) ID() string { return "storageclass.default" }
+func (storageclassDefault) Description() string {
+	return "exactly one StorageClass annotated as default"
+}
 func (storageclassDefault) Categories() []Category { return []Category{CategoryStorage} }
 func (storageclassDefault) Requires() Capabilities { return CapAPIServer }
 

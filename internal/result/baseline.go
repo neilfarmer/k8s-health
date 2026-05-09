@@ -20,7 +20,7 @@ func LoadBaseline(path string) (*Baseline, error) {
 	if path == "" {
 		return nil, nil
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is user-supplied CLI flag (--baseline)
 	if err != nil {
 		return nil, fmt.Errorf("read baseline %q: %w", path, err)
 	}
@@ -46,7 +46,7 @@ func SaveBaseline(path string, rep Report) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 // Diff classifies each Finding in cur against base.

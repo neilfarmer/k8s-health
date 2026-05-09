@@ -67,7 +67,8 @@ func podMissingRefs(p *corev1.Pod, cm, sec, sa, pvc map[string]struct{}) []strin
 		missing = append(missing, fmt.Sprintf("serviceaccount/%s missing", saName))
 	}
 
-	for _, v := range p.Spec.Volumes {
+	for vi := range p.Spec.Volumes {
+		v := &p.Spec.Volumes[vi]
 		switch {
 		case v.PersistentVolumeClaim != nil:
 			name := v.PersistentVolumeClaim.ClaimName
@@ -89,7 +90,8 @@ func podMissingRefs(p *corev1.Pod, cm, sec, sa, pvc map[string]struct{}) []strin
 				missing = append(missing, fmt.Sprintf("secret/%s missing (volume %s)", v.Secret.SecretName, v.Name))
 			}
 		case v.Projected != nil:
-			for _, src := range v.Projected.Sources {
+			for si := range v.Projected.Sources {
+				src := &v.Projected.Sources[si]
 				if src.ConfigMap != nil {
 					if src.ConfigMap.Optional != nil && *src.ConfigMap.Optional {
 						continue
@@ -110,7 +112,8 @@ func podMissingRefs(p *corev1.Pod, cm, sec, sa, pvc map[string]struct{}) []strin
 		}
 	}
 
-	for _, ctr := range p.Spec.Containers {
+	for ci := range p.Spec.Containers {
+		ctr := &p.Spec.Containers[ci]
 		for _, ef := range ctr.EnvFrom {
 			if ef.ConfigMapRef != nil && (ef.ConfigMapRef.Optional == nil || !*ef.ConfigMapRef.Optional) {
 				if _, ok := cm[p.Namespace+"/"+ef.ConfigMapRef.Name]; !ok {

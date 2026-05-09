@@ -32,7 +32,8 @@ func (c podsRestarts) Run(ctx context.Context, env *kube.Env) []result.Finding {
 	out := []result.Finding{}
 	for i := range pods.Items {
 		p := &pods.Items[i]
-		for _, cs := range p.Status.ContainerStatuses {
+		for csi := range p.Status.ContainerStatuses {
+			cs := &p.Status.ContainerStatuses[csi]
 			if cs.RestartCount < restartsWarnAt {
 				continue
 			}

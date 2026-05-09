@@ -49,8 +49,8 @@ func nodeLabelPrefixExists(ctx context.Context, env *kube.Env, prefix string) bo
 	if err != nil {
 		return false
 	}
-	for _, n := range nodes.Items {
-		for k := range n.Labels {
+	for i := range nodes.Items {
+		for k := range nodes.Items[i].Labels {
 			if strings.HasPrefix(k, prefix) {
 				return true
 			}

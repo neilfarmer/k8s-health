@@ -48,7 +48,7 @@ func (c hpasMissingTarget) Run(ctx context.Context, env *kube.Env) []result.Find
 // workloadExists checks the most common scaleTargetRef kinds.
 // Returns (exists, knownKind). For unknown kinds we return knownKind=false
 // so the caller skips the finding rather than emitting noise.
-func workloadExists(ctx context.Context, env *kube.Env, ns, kind, name string) (bool, bool) {
+func workloadExists(ctx context.Context, env *kube.Env, ns, kind, name string) (exists, knownKind bool) {
 	switch kind {
 	case "Deployment":
 		_, err := env.Clientset.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})

@@ -45,8 +45,8 @@ func (c controllerMgrHealthz) Run(ctx context.Context, env *kube.Env) []result.F
 	}
 	if h.Stale {
 		return []result.Finding{{
-			Check:   c.ID(),
-			Status:  result.StatusCritical,
+			Check:  c.ID(),
+			Status: result.StatusCritical,
 			Message: fmt.Sprintf("kube-controller-manager lease stale: holder=%s renewed %s ago (max %s)",
 				h.Holder, now.Sub(h.RenewedAt).Round(time.Second), h.MaxAge),
 		}}

@@ -267,4 +267,3 @@ func execEtcdctl(ctx context.Context, cfg *rest.Config, cs kubernetes.Interface,
 	}
 	return stdout.Bytes(), nil
 }
-

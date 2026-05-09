@@ -19,7 +19,6 @@ import (
 	"github.com/neilfarmer/k8s-health/internal/result"
 )
 
-
 func TestStorageClassDefault(t *testing.T) {
 	t.Parallel()
 	defaultSC := &storagev1.StorageClass{

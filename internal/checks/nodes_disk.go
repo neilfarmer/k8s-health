@@ -18,7 +18,7 @@ func init() { Register(&nodesDisk{}) }
 // shape we care about. Hand-rolled to avoid pulling kubelet API deps.
 type kubeletStatsSummary struct {
 	Node struct {
-		NodeName string `json:"nodeName"`
+		NodeName string   `json:"nodeName"`
 		FS       *fsStats `json:"fs,omitempty"`
 		Runtime  struct {
 			ImageFS *fsStats `json:"imageFs,omitempty"`
@@ -52,8 +52,10 @@ func fetchNodeStats(ctx context.Context, env *kube.Env, nodeName string) (*kubel
 
 type nodesDisk struct{}
 
-func (nodesDisk) ID() string             { return "nodes.disk" }
-func (nodesDisk) Description() string    { return "per-node root filesystem and image filesystem usage (via kubelet stats)" }
+func (nodesDisk) ID() string { return "nodes.disk" }
+func (nodesDisk) Description() string {
+	return "per-node root filesystem and image filesystem usage (via kubelet stats)"
+}
 func (nodesDisk) Categories() []Category { return []Category{CategoryNode} }
 func (nodesDisk) Requires() Capabilities { return CapAPIServer }
 

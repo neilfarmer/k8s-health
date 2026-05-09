@@ -28,8 +28,10 @@ var pdbsProtectedNamespaces = map[string]struct{}{
 
 type pdbsCoverage struct{}
 
-func (pdbsCoverage) ID() string             { return "pdbs.coverage" }
-func (pdbsCoverage) Description() string    { return "system Deployments/StatefulSets with replicas>=2 are covered by a PDB" }
+func (pdbsCoverage) ID() string { return "pdbs.coverage" }
+func (pdbsCoverage) Description() string {
+	return "system Deployments/StatefulSets with replicas>=2 are covered by a PDB"
+}
 func (pdbsCoverage) Categories() []Category { return []Category{CategoryWorkload} }
 func (pdbsCoverage) Requires() Capabilities { return CapAPIServer }
 
@@ -104,8 +106,10 @@ func covered(sels []labels.Selector, labelsMap map[string]string) bool {
 
 type pdbsMisconfigured struct{}
 
-func (pdbsMisconfigured) ID() string             { return "pdbs.misconfigured" }
-func (pdbsMisconfigured) Description() string    { return "PDBs whose minAvailable equals or exceeds matching pod count (drains will block)" }
+func (pdbsMisconfigured) ID() string { return "pdbs.misconfigured" }
+func (pdbsMisconfigured) Description() string {
+	return "PDBs whose minAvailable equals or exceeds matching pod count (drains will block)"
+}
 func (pdbsMisconfigured) Categories() []Category { return []Category{CategoryWorkload} }
 func (pdbsMisconfigured) Requires() Capabilities { return CapAPIServer }
 

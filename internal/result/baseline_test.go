@@ -64,8 +64,8 @@ func TestCompareDiff(t *testing.T) {
 		{Check: "c", Status: result.StatusCritical, Resource: "r3"},
 	}
 	cur := []result.Finding{
-		{Check: "a", Status: result.StatusOK, Resource: "r1"},        // persisting
-		{Check: "b", Status: result.StatusWarning, Resource: "r2"},   // persisting
+		{Check: "a", Status: result.StatusOK, Resource: "r1"},       // persisting
+		{Check: "b", Status: result.StatusWarning, Resource: "r2"},  // persisting
 		{Check: "d", Status: result.StatusCritical, Resource: "r4"}, // new
 	}
 	d := result.Compare(base, cur)

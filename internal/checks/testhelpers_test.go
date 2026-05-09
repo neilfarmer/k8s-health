@@ -25,11 +25,13 @@ func envWithObjects(objs ...runtime.Object) *kube.Env {
 	}
 }
 
-// envWithDynamic builds a *kube.Env with both a typed and a dynamic
-// fake clientset. gvrToListKind teaches the dynamic fake about each
-// GVR it must serve so List() returns the right list-kind.
-func envWithDynamic(gvrToListKind map[schema.GroupVersionResource]string, dynObjs []runtime.Object, typed ...runtime.Object) *kube.Env {
-	cs := fake.NewSimpleClientset(typed...)
+// envWithDynamic builds a *kube.Env with an empty typed clientset and a
+// dynamic fake clientset preloaded with dynObjs. gvrToListKind teaches
+// the dynamic fake about each GVR it must serve so List() returns the
+// right list-kind. Tests that need both typed and dynamic objects should
+// drop a typed object into the typed fake separately.
+func envWithDynamic(gvrToListKind map[schema.GroupVersionResource]string, dynObjs []runtime.Object) *kube.Env {
+	cs := fake.NewSimpleClientset()
 	scheme := runtime.NewScheme()
 	dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, dynObjs...)
 	return &kube.Env{

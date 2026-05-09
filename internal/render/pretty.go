@@ -16,7 +16,7 @@ type prettyRenderer struct{}
 
 // ANSI SGR codes. Empty when color is disabled.
 type palette struct {
-	reset, bold, dim                 string
+	reset, bold, dim                  string
 	red, yellow, green, cyan, magenta string
 }
 
@@ -175,13 +175,14 @@ func writeSummary(w io.Writer, r result.Report, bucket map[result.Status][]resul
 	worst := r.Worst()
 	exit := r.ExitCode(false)
 	_, color := iconColor(worst, p)
-	_, err := fmt.Fprintf(w,
+	_, err := fmt.Fprintf(
+		w,
 		"Summary: %s\n%sWorst: %s%s%s   Exit: %d\n",
 		strings.Join(parts, "  ·  "),
 		p.bold, color, worst, p.reset+p.bold, exit,
 	)
-	if p.bold != "" {
-		fmt.Fprint(w, p.reset)
+	if err == nil && p.bold != "" {
+		_, err = fmt.Fprint(w, p.reset)
 	}
 	return err
 }
