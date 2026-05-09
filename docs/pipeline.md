@@ -1,0 +1,106 @@
+# Pipeline
+
+`khealth` ships through four GitHub Actions workflows. Each is keyed to a
+distinct trigger and a distinct concern, so a slow integration job never
+blocks a fast lint signal on a doc-only PR.
+
+| Workflow                | File                                     | Trigger                              | Purpose |
+|-------------------------|------------------------------------------|--------------------------------------|---------|
+| `ci`                    | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)               | every PR + push to main              | lint, vet, race-tested unit tests, snapshot build, smoke-run the binary |
+| `security`              | [`.github/workflows/security.yml`](../.github/workflows/security.yml)   | every PR, weekly cron                | govulncheck, gosec, CodeQL, Trivy image scan, gitleaks |
+| `integration`           | [`.github/workflows/integration.yml`](../.github/workflows/integration.yml) | every PR + push to main              | spins up kind clusters across a K8s version matrix, runs `-tags=integration` tests against the built binary and image |
+| `release`               | [`.github/workflows/release.yml`](../.github/workflows/release.yml)     | tag push `v*.*.*`                    | goreleaser → multi-arch binaries + Docker images + checksums + SBOM, signed with cosign |
+
+## Local equivalent
+
+Everything CI does is replayable locally via `make`:
+
+```sh
+make ci              # lint + vet + tests
+make build           # multi-target binary into ./dist/
+make security        # govulncheck + gosec
+make integration     # kind cluster + integration tests
+make release-snapshot # goreleaser snapshot (no publish)
+```
+
+## Pipeline graph
+
+```
+PR opened
+   │
+   ├─► ci (lint → test → build snapshot, smoke version + check cluster)
+   ├─► security (govulncheck + gosec → SARIF; CodeQL; Trivy; gitleaks)
+   └─► integration (matrix kind v1.30 / v1.31 → integration tests)
+
+Tag pushed (v*.*.*)
+   └─► release (goreleaser: archives + checksums + Docker images + SBOM + cosign)
+```
+
+## What CI publishes
+
+- **Coverage profile** as a workflow artifact (`coverage` artifact in `ci`).
+- **Snapshot binary** for download from any green PR (`khealth-snapshot`).
+- **SARIF** uploaded to GitHub's "Security" tab for gosec, CodeQL, and Trivy.
+- **Release artifacts** under GitHub Releases on tag push:
+  - `khealth_<version>_<os>_<arch>.tar.gz` / `.zip`
+  - `checksums.txt` (SHA-256)
+  - SBOMs per archive (Syft, SPDX)
+  - `ghcr.io/neilfarmer/k8s-health:<version>` multi-arch image
+  - cosign signatures (keyless, OIDC-bound to the workflow)
+
+## Coverage threshold
+
+Unit tests run with cross-package coverage (`-coverpkg=./...`) so packages
+exercised only through other packages still count. The CI `test` job fails
+if **total coverage drops below 80%**. The threshold is also enforced
+locally:
+
+```sh
+make cover-check               # fails on <80%
+make cover-check COVER_MIN=85  # raise the bar locally
+make cover-html                # open the per-line report in a browser
+```
+
+The threshold lives in two places (kept consistent):
+
+- `Makefile`: `COVER_MIN ?= 80`
+- `.github/workflows/ci.yml`: `COVER_MIN: "80"` env on the gate step
+
+When adding new code, prefer keeping coverage at or above current. If the new
+code is genuinely not unit-testable (e.g. `main()` shims), exercise it via
+the integration test suite instead — those don't count toward the unit
+coverage gate but do exercise the binary end-to-end.
+
+## Allowlisting Trivy findings
+
+The `trivy-image` job blocks the build on any HIGH or CRITICAL CVE that has a
+known fix (`ignore-unfixed: true` filters out un-fixable noise). When a finding
+is genuinely safe to ignore (no upstream fix, not exploitable in our context,
+mitigated by distroless/nonroot, etc.), add it to
+[`.trivyignore.yaml`](../.trivyignore.yaml) with:
+
+- `id` — the CVE/GHSA/OSV ID
+- `statement` — short rationale explaining why this is safe here
+- `expired_at` — hard expiry date; entries auto-stop applying after this so
+  we revisit instead of carrying a quiet allowlist forever
+- `purls` (optional) — scope to specific package URLs
+
+Each entry should reference an issue tracker so the rationale is auditable.
+
+The workflow runs Trivy twice on purpose:
+
+1. SARIF output with `exit-code: 0` → uploads to the Security tab regardless
+   of findings, so they are always visible.
+2. Table output with `exit-code: 1` → fails the build with readable output
+   in the CI logs.
+
+## Hardening / future tightening
+
+- **SLSA provenance** (`slsa-framework/slsa-github-generator`) for build
+  provenance attestations on release.
+- **Branch protection**: require `ci`, `integration`, and at least
+  `govulncheck` + `codeql` to pass before merge.
+- **Required signed commits** once the team is comfortable with the
+  workflow.
+- **Pin actions by SHA** (currently pinned by major/minor tag for readability;
+  flip to `@sha256:...` once we accept the maintenance overhead).

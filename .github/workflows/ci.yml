@@ -1,0 +1,99 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.25"
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.5.0
+          args: --timeout=5m
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - run: go mod download
+      - name: vet
+        run: go vet ./...
+      - name: test (with cross-package coverage)
+        run: go test -race -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
+      - name: coverage summary
+        run: go tool cover -func=coverage.out | tail -20
+      - name: enforce coverage threshold
+        env:
+          COVER_MIN: "80"
+        run: |
+          go tool cover -func=coverage.out | \
+            awk -v min="$COVER_MIN" '/^total:/ {
+              pct=$3; gsub("%","",pct);
+              if (pct+0 < min) {
+                printf "FAIL: total coverage %s%% is below threshold %s%%\n", pct, min;
+                exit 1;
+              }
+              printf "OK: total coverage %s%% meets threshold %s%%\n", pct, min;
+            }'
+      - name: upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: build snapshot with goreleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: build --snapshot --clean --single-target
+      - name: smoke-test the binary
+        run: |
+          set -euo pipefail
+          BIN=$(find dist -type f -name khealth | head -n1)
+          test -n "$BIN"
+          "$BIN" version
+          "$BIN" check cluster --output json
+      - name: upload snapshot binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: khealth-snapshot
+          path: dist/**/khealth*
+          retention-days: 7

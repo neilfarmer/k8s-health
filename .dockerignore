@@ -1,0 +1,10 @@
+.git
+.github
+.idea
+.vscode
+dist
+coverage.*
+*.test
+*.out
+docs
+examples

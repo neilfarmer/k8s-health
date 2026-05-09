@@ -1,0 +1,86 @@
+name: integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.25"
+  KIND_VERSION: v0.24.0
+  K8S_VERSION: v1.31.0
+
+jobs:
+  integration:
+    name: kind ${{ matrix.k8s }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s: [v1.30.4, v1.31.0]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: build khealth
+        run: make build
+
+      - name: install kind
+        uses: helm/kind-action@v1
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: kindest/node:${{ matrix.k8s }}
+          cluster_name: khealth-it
+          config: test/integration/kind-config.yaml
+          wait: 120s
+
+      - name: cluster info
+        run: |
+          kubectl cluster-info
+          kubectl get nodes -o wide
+          kubectl get pods -A
+
+      - name: load image into kind (for in-cluster scenarios)
+        run: |
+          docker build -t khealth:it .
+          kind load docker-image khealth:it --name khealth-it
+
+      - name: run integration tests
+        env:
+          KHEALTH_BIN: ${{ github.workspace }}/dist/khealth
+          KHEALTH_IMAGE: khealth:it
+        run: go test -tags=integration -timeout=15m -count=1 ./test/integration/...
+
+      - name: collect cluster diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          kubectl get all -A -o wide > artifacts/all.txt || true
+          kubectl describe nodes > artifacts/nodes.txt || true
+          kubectl get events -A --sort-by=.lastTimestamp > artifacts/events.txt || true
+          for ns in kube-system default; do
+            kubectl logs -n "$ns" --all-containers=true --tail=200 -l app.kubernetes.io/name=khealth \
+              > "artifacts/logs-$ns.txt" 2>/dev/null || true
+          done
+
+      - name: upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-diagnostics-${{ matrix.k8s }}
+          path: artifacts
+          retention-days: 7
