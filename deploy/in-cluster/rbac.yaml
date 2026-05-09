@@ -1,0 +1,56 @@
+# RBAC for `khealth` running in-cluster (Job or CronJob).
+#
+# Grants only the read access Phase-1 checks need: pods, nodes, services,
+# endpoints, events, persistentvolumeclaims, deployments, daemonsets,
+# statefulsets, plus /readyz on the apiserver via discovery.
+#
+# Apply alongside deploy/in-cluster/job.yaml.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: khealth
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: khealth
+  namespace: khealth
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: khealth-reader
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - nodes
+      - services
+      - endpoints
+      - events
+      - persistentvolumeclaims
+      - persistentvolumes
+      - namespaces
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - daemonsets
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  # /readyz and /livez on the apiserver
+  - nonResourceURLs: ["/readyz", "/livez", "/healthz"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: khealth-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: khealth-reader
+subjects:
+  - kind: ServiceAccount
+    name: khealth
+    namespace: khealth

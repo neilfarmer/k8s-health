@@ -54,20 +54,33 @@ func TestVersionJSON(t *testing.T) {
 	}
 }
 
-func TestCheckScopeStubs(t *testing.T) {
+func TestCheckSubcommandsRegistered(t *testing.T) {
 	t.Parallel()
-	scopes := []string{"cluster", "pods", "nodes", "controlplane", "etcd", "events"}
-	for _, s := range scopes {
-		t.Run(s, func(t *testing.T) {
+	for _, scope := range []string{"cluster", "pods", "nodes", "controlplane", "etcd", "events"} {
+		t.Run(scope, func(t *testing.T) {
 			t.Parallel()
-			out, err := execute(t, "check", s)
+			out, err := execute(t, "check", scope, "--help")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if !strings.Contains(out, "not yet implemented") {
-				t.Errorf("expected stub message for check %s, got: %q", s, out)
+			if !strings.Contains(out, scope) {
+				t.Errorf("help did not mention scope %q: %s", scope, out)
 			}
 		})
+	}
+}
+
+func TestCheckClusterErrorsWithoutKubeconfig(t *testing.T) {
+	t.Setenv("KUBECONFIG", "/nonexistent/no/such/kubeconfig.yaml")
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	out, err := execute(t,
+		"check", "cluster",
+		"--launch-mode", "out-of-cluster",
+		"--kubeconfig", "/nonexistent/no/such/kubeconfig.yaml",
+	)
+	if err == nil {
+		t.Fatalf("expected error when kubeconfig missing, output=%s", out)
 	}
 }
 

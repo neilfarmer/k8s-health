@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.25"
+  GO_VERSION: "1.26"
   KIND_VERSION: v0.24.0
   K8S_VERSION: v1.31.0
 
@@ -63,7 +63,7 @@ jobs:
         env:
           KHEALTH_BIN: ${{ github.workspace }}/dist/khealth
           KHEALTH_IMAGE: khealth:it
-        run: go test -tags=integration -timeout=15m -count=1 ./test/integration/...
+        run: go test -v -tags=integration -timeout=15m -count=1 ./test/integration/...
 
       - name: collect cluster diagnostics on failure
         if: failure()
