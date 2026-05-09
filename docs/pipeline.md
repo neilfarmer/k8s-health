@@ -48,6 +48,29 @@ Tag pushed (v*.*.*)
   - `ghcr.io/neilfarmer/k8s-health:<version>` multi-arch image
   - cosign signatures (keyless, OIDC-bound to the workflow)
 
+## Coverage threshold
+
+Unit tests run with cross-package coverage (`-coverpkg=./...`) so packages
+exercised only through other packages still count. The CI `test` job fails
+if **total coverage drops below 80%**. The threshold is also enforced
+locally:
+
+```sh
+make cover-check               # fails on <80%
+make cover-check COVER_MIN=85  # raise the bar locally
+make cover-html                # open the per-line report in a browser
+```
+
+The threshold lives in two places (kept consistent):
+
+- `Makefile`: `COVER_MIN ?= 80`
+- `.github/workflows/ci.yml`: `COVER_MIN: "80"` env on the gate step
+
+When adding new code, prefer keeping coverage at or above current. If the new
+code is genuinely not unit-testable (e.g. `main()` shims), exercise it via
+the integration test suite instead — those don't count toward the unit
+coverage gate but do exercise the binary end-to-end.
+
 ## Allowlisting Trivy findings
 
 The `trivy-image` job blocks the build on any HIGH or CRITICAL CVE that has a
