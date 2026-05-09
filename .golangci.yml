@@ -1,0 +1,65 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errcheck
+    - errorlint
+    - gocritic
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+        - name: exported
+        - name: package-comments
+        - name: error-return
+        - name: error-naming
+        - name: if-return
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: unused-parameter
+        - name: unreachable-code
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - hugeParam
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - dupl
+          - gosec
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/neilfarmer/k8s-health
