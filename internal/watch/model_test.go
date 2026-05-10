@@ -127,8 +127,10 @@ func TestSummaryLineMentionsAllStatuses(t *testing.T) {
 	t.Parallel()
 	rep := result.Report{
 		Findings: []result.Finding{
-			{Status: result.StatusCritical}, {Status: result.StatusWarning},
-			{Status: result.StatusUnknown}, {Status: result.StatusOK},
+			{Status: result.StatusCritical},
+			{Status: result.StatusWarning},
+			{Status: result.StatusUnknown},
+			{Status: result.StatusOK},
 			{Status: result.StatusSkipped},
 		},
 	}

@@ -24,10 +24,12 @@ type Options struct {
 }
 
 type tickMsg time.Time
+
 type reportMsg struct {
 	rep result.Report
 	dur time.Duration
 }
+
 type errMsg struct{ err error }
 
 // Model is the bubbletea model backing `khealth watch`. It is exported
@@ -201,8 +203,10 @@ func headerLine(m Model) string {
 	}
 	parts = append(parts, dimStyle.Render(fmt.Sprintf("tick #%d", m.runs)))
 	if !m.lastRun.IsZero() {
-		parts = append(parts, dimStyle.Render(m.lastRun.Format("15:04:05")))
-		parts = append(parts, dimStyle.Render(fmt.Sprintf("(%s)", m.lastDur.Round(time.Millisecond))))
+		parts = append(parts,
+			dimStyle.Render(m.lastRun.Format("15:04:05")),
+			dimStyle.Render(fmt.Sprintf("(%s)", m.lastDur.Round(time.Millisecond))),
+		)
 	}
 	state := okStyle.Render("⏵ live")
 	if m.paused {
@@ -347,7 +351,8 @@ func summaryLine(r result.Report) string {
 		{result.StatusOK, okStyle},
 	}
 	parts := make([]string, 0, len(order))
-	for _, o := range order {
+	for i := range order {
+		o := &order[i]
 		parts = append(parts, o.style.Render(fmt.Sprintf("%d %s", bucket[o.s], o.s)))
 	}
 	worst := r.Worst()
@@ -355,7 +360,7 @@ func summaryLine(r result.Report) string {
 		dimStyle.Render("   worst=") + statusStyle(worst).Render(string(worst))
 }
 
-func footerLine(m Model) string {
+func footerLine(_ Model) string {
 	keys := []string{
 		dimStyle.Render("[q]") + " quit",
 		dimStyle.Render("[p]") + " pause",
