@@ -19,7 +19,9 @@ type tableRenderer struct{}
 const defaultTableWidth = 120
 
 func (tableRenderer) Render(w io.Writer, r result.Report) error {
-	if err := writeTableHeader(w, r); err != nil {
+	p := newPalette(colorEnabled(w))
+
+	if err := writeTableHeader(w, r, p); err != nil {
 		return err
 	}
 
@@ -42,30 +44,32 @@ func (tableRenderer) Render(w io.Writer, r result.Report) error {
 		if len(fs) == 0 {
 			continue
 		}
-		if err := writeTableSection(w, s, fs, maxWidth); err != nil {
+		if err := writeTableSection(w, s, fs, maxWidth, p); err != nil {
 			return err
 		}
 	}
 
 	worst := r.Worst()
 	exit := r.ExitCode(false)
-	_, err := fmt.Fprintf(w, "%d findings (worst=%s). Default exit code: %d\n", len(r.Findings), worst, exit)
+	_, worstColor := iconColor(worst, p)
+	_, err := fmt.Fprintf(w, "%d findings (worst=%s%s%s). Default exit code: %d\n",
+		len(r.Findings), worstColor, worst, p.reset, exit)
 	return err
 }
 
-func writeTableHeader(w io.Writer, r result.Report) error {
+func writeTableHeader(w io.Writer, r result.Report, p palette) error {
 	if r.Cluster != "" {
-		if _, err := fmt.Fprintf(w, "CLUSTER  %s\n", r.Cluster); err != nil {
+		if _, err := fmt.Fprintf(w, "%sCLUSTER%s  %s%s%s\n", p.dim, p.reset, p.bold, r.Cluster, p.reset); err != nil {
 			return err
 		}
 	}
 	if r.Distro != "" {
-		if _, err := fmt.Fprintf(w, "DISTRO   %s\n", r.Distro); err != nil {
+		if _, err := fmt.Fprintf(w, "%sDISTRO%s   %s\n", p.dim, p.reset, r.Distro); err != nil {
 			return err
 		}
 	}
 	if !r.GeneratedAt.IsZero() {
-		if _, err := fmt.Fprintf(w, "TIME     %s\n", r.GeneratedAt.Format("2006-01-02T15:04:05Z07:00")); err != nil {
+		if _, err := fmt.Fprintf(w, "%sTIME%s     %s\n", p.dim, p.reset, r.GeneratedAt.Format("2006-01-02T15:04:05Z07:00")); err != nil {
 			return err
 		}
 	}
@@ -73,8 +77,9 @@ func writeTableHeader(w io.Writer, r result.Report) error {
 	return err
 }
 
-func writeTableSection(w io.Writer, s result.Status, fs []result.Finding, maxWidth int) error {
-	if _, err := fmt.Fprintf(w, "%s (%d)\n", s, len(fs)); err != nil {
+func writeTableSection(w io.Writer, s result.Status, fs []result.Finding, maxWidth int, p palette) error {
+	icon, color := iconColor(s, p)
+	if _, err := fmt.Fprintf(w, "%s%s %s (%d)%s\n", color, icon, s, len(fs), p.reset); err != nil {
 		return err
 	}
 
@@ -96,7 +101,8 @@ func writeTableSection(w io.Writer, s result.Status, fs []result.Finding, maxWid
 		rows = append(rows, []string{f.Check, res, f.Message})
 	}
 
-	if err := drawTable(w, headers, rows, maxWidth); err != nil {
+	colColors := []string{p.cyan, p.dim, ""}
+	if err := drawTable(w, headers, rows, maxWidth, p, colColors); err != nil {
 		return err
 	}
 	_, err := fmt.Fprintln(w)
@@ -126,29 +132,41 @@ func terminalWidth(w io.Writer) int {
 // drawTable emits a Unicode-bordered table. Column widths are computed
 // from content; if the natural total exceeds maxWidth the wider columns
 // (MESSAGE first, then RESOURCE) are shrunk and their cells wrapped.
-func drawTable(w io.Writer, headers []string, rows [][]string, maxWidth int) error {
+func drawTable(w io.Writer, headers []string, rows [][]string, maxWidth int, p palette, colColors []string) error {
 	widths := computeWidths(headers, rows, maxWidth)
 
-	top := borderLine("┌", "┬", "┐", widths)
-	mid := borderLine("├", "┼", "┤", widths)
-	bot := borderLine("└", "┴", "┘", widths)
+	top := dimWrap(p, borderLine("┌", "┬", "┐", widths))
+	mid := dimWrap(p, borderLine("├", "┼", "┤", widths))
+	bot := dimWrap(p, borderLine("└", "┴", "┘", widths))
+
+	headerColors := make([]string, len(headers))
+	for i := range headerColors {
+		headerColors[i] = p.bold
+	}
 
 	if _, err := fmt.Fprintln(w, top); err != nil {
 		return err
 	}
-	if err := writeWrappedRow(w, headers, widths); err != nil {
+	if err := writeWrappedRow(w, headers, widths, p, headerColors); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w, mid); err != nil {
 		return err
 	}
 	for _, r := range rows {
-		if err := writeWrappedRow(w, r, widths); err != nil {
+		if err := writeWrappedRow(w, r, widths, p, colColors); err != nil {
 			return err
 		}
 	}
 	_, err := fmt.Fprintln(w, bot)
 	return err
+}
+
+func dimWrap(p palette, s string) string {
+	if p.dim == "" {
+		return s
+	}
+	return p.dim + s + p.reset
 }
 
 // computeWidths starts from the natural max width per column (header +
@@ -216,7 +234,7 @@ func sum(xs []int) int {
 	return s
 }
 
-func writeWrappedRow(w io.Writer, cells []string, widths []int) error {
+func writeWrappedRow(w io.Writer, cells []string, widths []int, p palette, colColors []string) error {
 	wrapped := make([][]string, len(widths))
 	height := 1
 	for i := range widths {
@@ -231,7 +249,7 @@ func writeWrappedRow(w io.Writer, cells []string, widths []int) error {
 	}
 	for line := 0; line < height; line++ {
 		var b strings.Builder
-		b.WriteString("│")
+		b.WriteString(dimWrap(p, "│"))
 		for i, cw := range widths {
 			seg := ""
 			if line < len(wrapped[i]) {
@@ -242,9 +260,20 @@ func writeWrappedRow(w io.Writer, cells []string, widths []int) error {
 				pad = 0
 			}
 			b.WriteString(" ")
-			b.WriteString(seg)
+			color := ""
+			if i < len(colColors) {
+				color = colColors[i]
+			}
+			if color != "" && seg != "" {
+				b.WriteString(color)
+				b.WriteString(seg)
+				b.WriteString(p.reset)
+			} else {
+				b.WriteString(seg)
+			}
 			b.WriteString(strings.Repeat(" ", pad))
-			b.WriteString(" │")
+			b.WriteString(" ")
+			b.WriteString(dimWrap(p, "│"))
 		}
 		if _, err := fmt.Fprintln(w, b.String()); err != nil {
 			return err

@@ -56,7 +56,7 @@ func NewRootCmd() *cobra.Command {
 	pf.StringVarP(&g.Namespace, "namespace", "n", "", "Namespace scope for namespaced checks")
 	pf.BoolVarP(&g.AllNamespaces, "all-namespaces", "A", false, "Run namespaced checks across all namespaces")
 	pf.StringVar(&g.LaunchMode, "launch-mode", "auto", "out-of-cluster | in-cluster | auto")
-	pf.StringVarP(&g.Output, "output", "o", "pretty", "pretty | table | json | yaml")
+	pf.StringVarP(&g.Output, "output", "o", "pretty", "pretty | compact | table | json | yaml")
 	pf.BoolVar(&g.OnlyUnhealthy, "only-unhealthy", false, "Suppress findings with status OK")
 	pf.BoolVar(&g.Strict, "strict", false, "Treat WARN as failure (exit 2)")
 	pf.StringSliceVar(&g.Checks, "checks", nil, "Comma-separated check IDs to include")
@@ -78,6 +78,7 @@ func NewRootCmd() *cobra.Command {
 
 	root.AddCommand(
 		newCheckCmd(g),
+		newWatchCmd(g),
 		newTestCmd(g),
 		newVersionCmd(),
 		newEtcdProbeCmd(),
