@@ -93,13 +93,30 @@ snapshot:
 
 changelog:
   sort: asc
+  use: github
   filters:
     exclude:
       - "^docs:"
       - "^chore:"
       - "^test:"
+      - "^ci:"
       - Merge pull request
       - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Performance
+      regexp: '^.*?perf(\(.+\))??!?:.+$'
+      order: 2
+    - title: Dependencies
+      regexp: '^.*?deps(\(.+\))??!?:.+$'
+      order: 3
+    - title: Other
+      order: 999
 
 release:
   github:
@@ -107,3 +124,4 @@ release:
     name: k8s-health
   draft: false
   prerelease: auto
+  name_template: "khealth {{ .Tag }}"
